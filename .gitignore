@@ -1,0 +1,21 @@
+# Python / Django
+.venv/
+backend/venv/
+backend/venv-msys-broken/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/db.sqlite3
+backend/.pytest_cache/
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local temp
+.tmp/
