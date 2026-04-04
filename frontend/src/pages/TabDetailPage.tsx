@@ -128,14 +128,37 @@ const mockTabs = {
     "1": {
         customerName: "Ricardo",
         tabLabel: "Comanda #2402",
+        status: "aberta",
     },
     "2": {
         customerName: "Joao do Balcao",
         tabLabel: "Comanda #2403",
+        status: "aberta",
+    },
+    "3": {
+        customerName: "Ana Clara",
+        tabLabel: "Comanda #2404",
+        status: "aberta",
+    },
+    "4": {
+        customerName: "Marcos",
+        tabLabel: "Comanda #2405",
+        status: "encerrada",
+    },
+    "5": {
+        customerName: "Carlos Eduardo",
+        tabLabel: "Comanda #2406",
+        status: "aberta",
+    },
+    "6": {
+        customerName: "Beatriz Lopes",
+        tabLabel: "Comanda #2407",
+        status: "aberta",
     },
     nova: {
         customerName: "Nova Comanda",
-        tabLabel: "Nova abertura • Sem codigo ainda",
+        tabLabel: "Nova abertura",
+        status: "aberta",
     },
 } as const;
 
@@ -217,27 +240,38 @@ export function TabDetailPage() {
                                     </Box>
                                 </Typography>
 
-                                <Stack direction="row" spacing={1.25} alignItems="center">
+                                <Stack spacing={0.35}>
+                                    <Stack direction="row" spacing={1.25} alignItems="center">
+                                        <Typography
+                                            color="text.secondary"
+                                            sx={{
+                                                fontSize: "0.78rem",
+                                                fontWeight: 800,
+                                                letterSpacing: "0.12em",
+                                                textTransform: "uppercase",
+                                            }}
+                                        >
+                                            Comanda n°: {tab.tabLabel.replace("Comanda ", "")}
+                                        </Typography>
+                                    </Stack>
                                     <Box
                                         sx={{
-                                            width: 8,
-                                            height: 8,
-                                            borderRadius: "999px",
-                                            bgcolor: "secondary.main",
-                                            boxShadow: "0 0 0 6px rgba(0,98,165,0.08)",
+                                            pl: "0px",
                                         }}
-                                    />
+                                    >
                                     <Typography
-                                        color="text.secondary"
                                         sx={{
                                             fontSize: "0.78rem",
                                             fontWeight: 800,
-                                            letterSpacing: "0.12em",
-                                            textTransform: "uppercase",
+                                            color:
+                                                tab.status === "aberta"
+                                                    ? "primary.main"
+                                                    : "text.secondary",
                                         }}
                                     >
-                                        {tab.tabLabel}
+                                        Status: {tab.status === "aberta" ? "Aberta" : "Encerrada"}
                                     </Typography>
+                                    </Box>
                                 </Stack>
                             </Box>
 
@@ -502,12 +536,6 @@ export function TabDetailPage() {
                                 <Typography color="text.secondary">Subtotal</Typography>
                                 <Typography color="text.secondary">R$ 120,90</Typography>
                             </Stack>
-                            <Stack direction="row" justifyContent="space-between">
-                                <Typography color="text.secondary">
-                                    Taxa de Servico (10%)
-                                </Typography>
-                                <Typography color="text.secondary">R$ 12,09</Typography>
-                            </Stack>
                             <Divider />
                             <Stack direction="row" justifyContent="space-between" alignItems="center">
                                 <Typography variant="h6">Total Geral</Typography>
@@ -519,7 +547,7 @@ export function TabDetailPage() {
                                         color: "primary.main",
                                     }}
                                 >
-                                    R$ 132,99
+                                    R$ 120,90
                                 </Typography>
                             </Stack>
 
@@ -541,11 +569,7 @@ export function TabDetailPage() {
                                 Fechar Comanda / Ir para Pagamento
                             </Button>
 
-                            <Button
-                                fullWidth
-                                startIcon={<PrintRoundedIcon />}
-                                variant="text"
-                            >
+                            <Button fullWidth startIcon={<PrintRoundedIcon />} variant="text">
                                 Imprimir Conferencia
                             </Button>
                         </Stack>

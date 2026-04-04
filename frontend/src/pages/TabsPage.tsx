@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 type TabCard = {
     id: number;
     clientName: string;
@@ -62,79 +64,89 @@ const tabCards: TabCard[] = [
     },
 ];
 
-const summaryCards = [
-    { label: "Ativas", value: "14", accent: "primary" },
-    { label: "Encerradas", value: "08", accent: "neutral" },
-];
-
 export function TabsPage() {
+    const closedCount = tabCards.filter((tab) => tab.state === "closed").length;
+    const activeCount = tabCards.length - closedCount;
+
+    const summaryCards = [
+        { label: "Ativas", value: String(activeCount), accent: "primary" },
+        { label: "Encerradas", value: String(closedCount), accent: "neutral" },
+    ];
+
     return (
         <div className="page-stack">
             <section className="page-hero">
                 <div>
-                    <h1>Gestão de Comandas</h1>
-
-                    <p style={{ marginTop: 20 }}>Gerencie as comandas ativos e encerrados.</p>                                    
+                    <h1>Gestao de Comandas</h1>
+                    <p style={{ marginTop: 20 }}>Gerencie as comandas ativas e encerradas.</p>
                 </div>
 
                 <div className="page-hero__actions">
-                    <div className="summary-strip" aria-label="Resumo de comandas">
-                        {summaryCards.map((item) => (
-                            <article className="summary-card" key={item.label}>
-                                <span>{item.label}</span>
-                                <strong
-                                    className={
-                                        item.accent === "primary"
-                                            ? "summary-card__value summary-card__value--primary"
-                                            : "summary-card__value"
-                                    }
-                                >
-                                    {item.value}
-                                </strong>
-                            </article>
-                        ))}
-                    </div>
+                    <section className="summary-panel" aria-label="Resumo de comandas">
+                        <p className="summary-panel__title">Status das Comandas</p>
 
-                    <button className="primary-action" type="button">
+                        <div className="summary-strip">
+                            {summaryCards.map((item) => (
+                                <article className="summary-card" key={item.label}>
+                                    <span>{item.label}</span>
+                                    <strong
+                                        className={
+                                            item.accent === "primary"
+                                                ? "summary-card__value summary-card__value--primary"
+                                                : "summary-card__value"
+                                        }
+                                    >
+                                        {item.value}
+                                    </strong>
+                                </article>
+                            ))}
+                        </div>
+                    </section>
+
+                    <Link className="primary-action" to="/comandas/nova">
                         + Nova Comanda
-                    </button>
+                    </Link>
                 </div>
             </section>
 
             <section className="tabs-grid" aria-label="Lista de comandas">
                 {tabCards.map((tab) => (
-                    <article
-                        className={`tab-card tab-card--${tab.state}`}
+                    <Link
+                        aria-label={`Abrir comanda de ${tab.clientName}`}
+                        className="tab-card-link"
                         key={tab.id}
+                        to={`/comandas/${tab.id}`}
                     >
-                        <div className="tab-card__status" aria-hidden="true" />
+                        <article className={`tab-card tab-card--${tab.state}`}>
+                            <div className="tab-card__status" aria-hidden="true" />
 
-                        <div className="tab-card__body">
-                            <div className="tab-card__header">
-                                <h2>{tab.clientName}</h2>
-                                <p>{tab.elapsedTime}</p>
+                            <div className="tab-card__body">
+                                <div className="tab-card__header">
+                                    <h2>{tab.clientName}</h2>
+                                    <p>{tab.elapsedTime}</p>
+                                </div>
+
+                                {tab.note ? (
+                                    <p
+                                        className={
+                                            tab.state === "attention"
+                                                ? "tab-card__note tab-card__note--attention"
+                                                : "tab-card__note"
+                                        }
+                                    >
+                                        {tab.note}
+                                    </p>
+                                ) : (
+                                    <div className="tab-card__spacer" />
+                                )}
+
+                                <div className="tab-card__footer">
+                                    <span>{tab.totalLabel}</span>
+                                    <strong>{tab.totalValue}</strong>
+                                </div>
                             </div>
-
-                            {tab.note ? (
-                                <p
-                                    className={
-                                        tab.state === "attention"
-                                            ? "tab-card__note tab-card__note--attention"
-                                            : "tab-card__note"
-                                    }
-                                >
-                                    {tab.note}
-                                </p>
-                            ) : (
-                                <div className="tab-card__spacer" />
-                            )}
-
-                            <div className="tab-card__footer">
-                                <span>{tab.totalLabel}</span>
-                                <strong>{tab.totalValue}</strong>
-                            </div>
-                        </div>
-                    </article>
+                        </article>
+                    </Link>
                 ))}
             </section>
         </div>
