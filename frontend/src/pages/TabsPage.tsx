@@ -72,8 +72,9 @@ export function TabsPage() {
         <div className="page-stack">
             <section className="page-hero">
                 <div>
-                    <h1>Mural de Comandas</h1>
-                    <p>Gerencie os pedidos ativos e encerrados do salao.</p>
+                    <h1>Gestão de Comandas</h1>
+
+                    <p style={{ marginTop: 20 }}>Gerencie as comandas ativos e encerrados.</p>                                    
                 </div>
 
                 <div className="page-hero__actions">
@@ -95,7 +96,7 @@ export function TabsPage() {
                     </div>
 
                     <button className="primary-action" type="button">
-                        + Abrir Nova Comanda
+                        + Nova Comanda
                     </button>
                 </div>
             </section>

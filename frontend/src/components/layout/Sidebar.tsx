@@ -25,7 +25,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
     { label: "Dashboard", to: "/dashboard", icon: <DashboardRoundedIcon /> },
-    { label: "Mural de Comandas", to: "/comandas", icon: <ReceiptLongRoundedIcon /> },
+    { label: "Comandas", to: "/comandas", icon: <ReceiptLongRoundedIcon /> },
     { label: "Estoque", icon: <Inventory2RoundedIcon /> },
     { label: "Financeiro", icon: <PaymentsRoundedIcon /> },
     { label: "Configuracoes", icon: <SettingsRoundedIcon /> },
@@ -45,15 +45,22 @@ export function Sidebar() {
                 background: "linear-gradient(180deg, #f7fbf9 0%, #eef6f2 100%)",
             }}
         >
-            <Box sx={{ mb: 4 }}>
+            <Box
+                sx={{
+                    mb: 4,
+                    display: "flex",
+                    justifyContent: "center",
+                }}
+            >
                 <Box
                     component="img"
                     alt="BarControl Gestao de Bar e Mercearia"
                     src={logo}
                     sx={{
                         display: "block",
-                        width: "min(100%, 220px)",
+                        width: "min(100%, 180px)",
                         height: "auto",
+                        mx: "auto",
                     }}
                 />
             </Box>
@@ -63,7 +70,9 @@ export function Sidebar() {
                     const selected =
                         item.to !== undefined &&
                         (location.pathname === item.to ||
-                            (item.to === "/comandas" && location.pathname === "/"));
+                            (item.to === "/comandas" &&
+                                (location.pathname === "/" ||
+                                    location.pathname.startsWith("/comandas/"))));
 
                     if (!item.to) {
                         return (

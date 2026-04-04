@@ -92,7 +92,7 @@ button {
 
 .sidebar__brand-image {
     display: block;
-    width: min(100%, 220px);
+    width: min(100%, 300px);
     height: auto;
 }
 
@@ -396,7 +396,7 @@ button {
 .metrics-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 18px;
+    gap: 18px; 
 }
 
 .metric-card,

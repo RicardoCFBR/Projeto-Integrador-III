@@ -103,10 +103,9 @@ export function DashboardPage() {
         <div className="page-stack">
             <section className="dashboard-hero" aria-label="Resumo do dashboard">
                 <div>
-                    <h1>Dashboard de vendas por dia.</h1>
-                    <p>
-                        Esta rota consome o endpoint do Django e atende a exigencia de
-                        analise de dados desde a estrutura inicial.
+                    <h1>Dashboard</h1>
+                    <p style={{ marginTop: 20 }}>
+                        Veja os principais indicadores do sistema e o faturamento diario.
                     </p>
                 </div>
             </section>

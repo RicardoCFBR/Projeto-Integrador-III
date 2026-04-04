@@ -10,6 +10,7 @@ import { Route, Routes } from "react-router-dom";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Topbar } from "./components/layout/Topbar";
 import { DashboardPage } from "./pages/DashboardPage";
+import { TabDetailPage } from "./pages/TabDetailPage";
 import { TabsPage } from "./pages/TabsPage";
 
 let theme = createTheme({
@@ -91,6 +92,8 @@ export default function App() {
                         <Routes>
                             <Route element={<TabsPage />} path="/" />
                             <Route element={<TabsPage />} path="/comandas" />
+                            <Route element={<TabDetailPage />} path="/comandas/nova" />
+                            <Route element={<TabDetailPage />} path="/comandas/:tabId" />
                             <Route element={<DashboardPage />} path="/dashboard" />
                         </Routes>
                     </Box>
