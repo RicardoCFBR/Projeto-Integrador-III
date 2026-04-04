@@ -16,6 +16,7 @@ import {
 type TabsContextValue = {
     tabs: TabSummary[];
     getTabById: (tabId?: string) => TabSummary;
+    createTab: (customerName: string) => TabSummary;
     updateTabStatus: (tabId: string, status: TabStatus) => void;
 };
 
@@ -37,6 +38,39 @@ export function TabsProvider({ children }: TabsProviderProps) {
                 }
 
                 return tabs.find((tab) => tab.id === tabId) ?? tabs[0] ?? newTabDraft;
+            },
+            createTab(customerName) {
+                let createdTab = newTabDraft;
+
+                setTabs((currentTabs) => {
+                    const nextId = String(
+                        currentTabs.reduce((maxId, tab) => {
+                            const numericId = Number(tab.id);
+                            return Number.isNaN(numericId) ? maxId : Math.max(maxId, numericId);
+                        }, 0) + 1,
+                    );
+                    const nextTabNumber =
+                        currentTabs.reduce((maxNumber, tab) => {
+                            const numericLabel = Number(tab.tabLabel.replace(/\D/g, ""));
+                            return Number.isNaN(numericLabel)
+                                ? maxNumber
+                                : Math.max(maxNumber, numericLabel);
+                        }, 2400) + 1;
+
+                    createdTab = {
+                        id: nextId,
+                        customerName,
+                        elapsedTime: "Ha 0 min",
+                        totalLabel: "Total parcial",
+                        totalValue: "R$ 0,00",
+                        status: "open",
+                        tabLabel: `Comanda #${nextTabNumber}`,
+                    };
+
+                    return [createdTab, ...currentTabs];
+                });
+
+                return createdTab;
             },
             updateTabStatus(tabId, status) {
                 setTabs((currentTabs) =>

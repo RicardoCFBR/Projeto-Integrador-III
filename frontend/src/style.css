@@ -379,7 +379,7 @@ button {
     bottom: 22px;
     width: 5px;
     border-radius: 999px;
-    background: var(--secondary);
+    background: var(--primary);
 }
 
 .tab-card__body {

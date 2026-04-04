@@ -1,9 +1,11 @@
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
+import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import GridViewRoundedIcon from "@mui/icons-material/GridViewRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import LiquorRoundedIcon from "@mui/icons-material/LiquorRounded";
@@ -28,7 +30,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useTabs } from "../contexts/TabsContext";
 
@@ -128,24 +130,63 @@ const orderItems: OrderItem[] = [
 ];
 
 export function TabDetailPage() {
+    const navigate = useNavigate();
     const params = useParams<{ tabId?: string }>();
-    const { getTabById, updateTabStatus } = useTabs();
+    const { createTab, getTabById, updateTabStatus } = useTabs();
     const tab = getTabById(params.tabId);
-    const isClosed = tab.status === "closed";
-    const statusLabel = isClosed ? "Encerrada" : "Aberta";
-    const primaryActionLabel = isClosed
-        ? "Reabrir Comanda"
-        : "Fechar Comanda / Ir para Pagamento";
-    const statusHint = isClosed
-        ? "Esta comanda esta encerrada. Reabra para voltar a lancar itens."
-        : "Comanda aberta para novos lancamentos.";
+    const isNewTab = params.tabId === "nova";
+    const isClosed = !isNewTab && tab.status === "closed";
+    const [draftCustomerName, setDraftCustomerName] = useState("");
+    const [isEditingCustomerName, setIsEditingCustomerName] = useState(false);
+
+    useEffect(() => {
+        if (isNewTab) {
+            setDraftCustomerName("");
+            setIsEditingCustomerName(false);
+            return;
+        }
+
+        setDraftCustomerName(tab.customerName);
+        setIsEditingCustomerName(false);
+    }, [isNewTab, tab.customerName, tab.id]);
+
+    const hasCustomerName = draftCustomerName.trim().length > 0;
+    const customerNameLabel = hasCustomerName ? draftCustomerName.trim() : tab.customerName;
+    const statusLabel = isNewTab ? "Nova" : isClosed ? "Encerrada" : "Aberta";
+    const primaryActionLabel = isNewTab
+        ? "Abrir Comanda"
+        : isClosed
+          ? "Reabrir Comanda"
+          : "Fechar Comanda / Ir para Pagamento";
+    const statusHint = isNewTab
+        ? "Informe o nome do cliente e confirme para inserir a comanda no mural."
+        : isClosed
+          ? "Esta comanda esta encerrada. Reabra para voltar a lancar itens."
+          : "Comanda aberta para novos lancamentos.";
+    const interactionsDisabled = isNewTab || isClosed;
 
     function handleToggleStatus() {
-        if (tab.id === "nova") {
+        if (isNewTab) {
+            if (!hasCustomerName) {
+                setIsEditingCustomerName(true);
+                return;
+            }
+
+            createTab(draftCustomerName.trim());
+            navigate("/comandas");
             return;
         }
 
         updateTabStatus(tab.id, isClosed ? "open" : "closed");
+    }
+
+    function handleCustomerNameSubmit() {
+        if (!hasCustomerName) {
+            return;
+        }
+
+        setDraftCustomerName(draftCustomerName.trim());
+        setIsEditingCustomerName(false);
     }
 
     return (
@@ -213,13 +254,66 @@ export function TabDetailPage() {
                             justifyContent="space-between"
                             alignItems={{ xs: "flex-start", lg: "flex-end" }}
                         >
-                            <Box>
+                            <Box sx={{ minWidth: 0 }}>
                                 <Typography variant="h4" sx={{ mb: 1 }}>
-                                    Lancamentos para:{" "}
-                                    <Box component="span" sx={{ color: "secondary.main" }}>
-                                        {tab.customerName}
+                                    {isNewTab ? "Nova comanda para: " : "Lancamentos para: "}
+                                    <Box
+                                        component="span"
+                                        sx={{
+                                            color: hasCustomerName
+                                                ? "secondary.main"
+                                                : "text.secondary",
+                                        }}
+                                    >
+                                        {customerNameLabel}
                                     </Box>
+
+                                    {isNewTab ? (
+                                        <IconButton
+                                            aria-label="Editar nome do cliente"
+                                            onClick={() =>
+                                                setIsEditingCustomerName((currentValue) => !currentValue)
+                                            }
+                                            size="small"
+                                            sx={{ ml: 1, verticalAlign: "middle" }}
+                                        >
+                                            <EditRoundedIcon fontSize="small" />
+                                        </IconButton>
+                                    ) : null}
                                 </Typography>
+
+                                {isNewTab && isEditingCustomerName ? (
+                                    <Stack
+                                        direction={{ xs: "column", sm: "row" }}
+                                        spacing={1.25}
+                                        sx={{ mb: 1.5, maxWidth: 420 }}
+                                    >
+                                        <TextField
+                                            autoFocus
+                                            fullWidth
+                                            placeholder="Digite o nome do cliente"
+                                            size="small"
+                                            value={draftCustomerName}
+                                            onChange={(event) =>
+                                                setDraftCustomerName(event.target.value)
+                                            }
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Enter") {
+                                                    event.preventDefault();
+                                                    handleCustomerNameSubmit();
+                                                }
+                                            }}
+                                        />
+                                        <IconButton
+                                            aria-label="Confirmar nome do cliente"
+                                            color="primary"
+                                            disabled={!hasCustomerName}
+                                            onClick={handleCustomerNameSubmit}
+                                        >
+                                            <CheckRoundedIcon />
+                                        </IconButton>
+                                    </Stack>
+                                ) : null}
 
                                 <Stack spacing={0.35}>
                                     <Typography
@@ -238,7 +332,11 @@ export function TabDetailPage() {
                                         sx={{
                                             fontSize: "0.78rem",
                                             fontWeight: 800,
-                                            color: isClosed ? "text.secondary" : "primary.main",
+                                            color: isNewTab
+                                                ? "text.secondary"
+                                                : isClosed
+                                                  ? "text.secondary"
+                                                  : "primary.main",
                                         }}
                                     >
                                         Status: {statusLabel}
@@ -251,7 +349,7 @@ export function TabDetailPage() {
                             </Box>
 
                             <TextField
-                                disabled={isClosed}
+                                disabled={interactionsDisabled}
                                 fullWidth
                                 placeholder="O que o cliente deseja hoje?"
                                 sx={{
@@ -370,7 +468,7 @@ export function TabDetailPage() {
 
                                             <IconButton
                                                 aria-label={`Adicionar ${product.title}`}
-                                                disabled={isClosed}
+                                                disabled={interactionsDisabled}
                                                 sx={{
                                                     bgcolor: "primary.main",
                                                     color: "primary.contrastText",
@@ -479,7 +577,7 @@ export function TabDetailPage() {
                                     <IconButton
                                         aria-label={`Remover ${item.title}`}
                                         color="error"
-                                        disabled={isClosed}
+                                        disabled={interactionsDisabled}
                                         size="small"
                                     >
                                         <CloseRoundedIcon fontSize="small" />
@@ -501,9 +599,11 @@ export function TabDetailPage() {
                                 opacity: 0.75,
                             }}
                         >
-                            {isClosed
-                                ? "Comanda encerrada. Reabra para adicionar novos itens."
-                                : "Adicione itens para atualizar o total."}
+                            {isNewTab
+                                ? "Defina o nome do cliente para inserir esta comanda no mural."
+                                : isClosed
+                                  ? "Comanda encerrada. Reabra para adicionar novos itens."
+                                  : "Adicione itens para atualizar o total."}
                         </Box>
                     </Stack>
 
@@ -537,24 +637,38 @@ export function TabDetailPage() {
 
                             <Button
                                 fullWidth
+                                disabled={isNewTab && !hasCustomerName}
                                 onClick={handleToggleStatus}
                                 size="large"
                                 startIcon={
-                                    isClosed ? <LockOpenRoundedIcon /> : <PaymentsRoundedIcon />
+                                    isNewTab ? (
+                                        <CheckRoundedIcon />
+                                    ) : isClosed ? (
+                                        <LockOpenRoundedIcon />
+                                    ) : (
+                                        <PaymentsRoundedIcon />
+                                    )
                                 }
                                 sx={{
                                     mt: 1,
                                     minHeight: 56,
                                     borderRadius: "10px",
-                                    background: isClosed
-                                        ? "linear-gradient(135deg, #d9dedd 0%, #eff2f1 100%)"
-                                        : "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)",
-                                    color: isClosed ? "#435150" : "#083f10",
-                                    boxShadow: isClosed
+                                    background: isNewTab
+                                        ? "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)"
+                                        : isClosed
+                                          ? "linear-gradient(135deg, #d9dedd 0%, #eff2f1 100%)"
+                                          : "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)",
+                                    color: isClosed && !isNewTab ? "#435150" : "#083f10",
+                                    boxShadow: isClosed && !isNewTab
                                         ? "0 14px 28px rgba(67, 81, 80, 0.10)"
                                         : "0 16px 32px rgba(28, 109, 37, 0.16)",
+                                    "&.Mui-disabled": {
+                                        background:
+                                            "linear-gradient(135deg, #dfe6e2 0%, #eef2f0 100%)",
+                                        color: "rgba(67, 81, 80, 0.6)",
+                                    },
                                     "&:hover": {
-                                        background: isClosed
+                                        background: isClosed && !isNewTab
                                             ? "linear-gradient(135deg, #cfd5d3 0%, #e7ebea 100%)"
                                             : "linear-gradient(135deg, #16571d 0%, #88df82 100%)",
                                     },

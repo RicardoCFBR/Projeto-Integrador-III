@@ -73,8 +73,8 @@ export const mockTabs: TabSummary[] = [
 
 export const newTabDraft: TabSummary = {
     id: "nova",
-    customerName: "Nova Comanda",
-    elapsedTime: "Recem-aberta",
+    customerName: "Inserir nome do cliente",
+    elapsedTime: "Aguardando abertura",
     totalLabel: "Total parcial",
     totalValue: "R$ 0,00",
     status: "open",
