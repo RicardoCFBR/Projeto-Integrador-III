@@ -195,7 +195,7 @@ function mapTabItem(item: ApiTabItem): TabItem {
         id: item.id,
         productId: item.produto,
         quantity: item.quantidade,
-        quantityLabel: `${item.quantidade}x`,
+        quantityLabel: String(item.quantidade),
         title: item.produto_nome,
         timeLabel: formatMinutesDistance(item.criado_em),
         value: formatCurrency(valueNumber),
@@ -244,6 +244,18 @@ export async function addItemToTab(tabId: string, productId: number, quantity = 
             produto_id: productId,
             quantidade: quantity,
         }),
+    });
+}
+
+export async function incrementTabItem(itemId: number) {
+    return request<ApiTabItem>(`/itens-comanda/${itemId}/incrementar/`, {
+        method: "POST",
+    });
+}
+
+export async function decrementTabItem(itemId: number) {
+    return request<ApiTabItem | null>(`/itens-comanda/${itemId}/decrementar/`, {
+        method: "POST",
     });
 }
 

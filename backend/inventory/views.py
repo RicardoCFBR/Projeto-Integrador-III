@@ -47,6 +47,15 @@ def annotated_comandas_queryset():
     )
 
 
+def comanda_detail_queryset():
+    return annotated_comandas_queryset().prefetch_related(
+        Prefetch(
+            "itens",
+            queryset=ItemComanda.objects.select_related("produto").all(),
+        )
+    )
+
+
 def generate_comanda_codigo():
     last_code = (
         Comanda.objects.exclude(codigo="")
@@ -94,12 +103,7 @@ class ComandaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = annotated_comandas_queryset()
         if self.action == "retrieve":
-            return queryset.prefetch_related(
-                Prefetch(
-                    "itens",
-                    queryset=ItemComanda.objects.select_related("produto").all(),
-                )
-            )
+            return comanda_detail_queryset()
         return queryset
 
     def get_serializer_class(self):
@@ -126,14 +130,7 @@ class ComandaViewSet(viewsets.ModelViewSet):
             status=Comanda.Status.ABERTA,
         )
 
-        response_serializer = ComandaDetailSerializer(
-            annotated_comandas_queryset().prefetch_related(
-                Prefetch(
-                    "itens",
-                    queryset=ItemComanda.objects.select_related("produto").all(),
-                )
-            ).get(pk=comanda.pk)
-        )
+        response_serializer = ComandaDetailSerializer(comanda_detail_queryset().get(pk=comanda.pk))
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"], url_path="encerrar")
@@ -149,14 +146,7 @@ class ComandaViewSet(viewsets.ModelViewSet):
         comanda.encerrada_em = timezone.now()
         comanda.save(update_fields=["status", "encerrada_em"])
 
-        serializer = ComandaDetailSerializer(
-            annotated_comandas_queryset().prefetch_related(
-                Prefetch(
-                    "itens",
-                    queryset=ItemComanda.objects.select_related("produto").all(),
-                )
-            ).get(pk=comanda.pk)
-        )
+        serializer = ComandaDetailSerializer(comanda_detail_queryset().get(pk=comanda.pk))
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"], url_path="reabrir")
@@ -172,14 +162,7 @@ class ComandaViewSet(viewsets.ModelViewSet):
         comanda.encerrada_em = None
         comanda.save(update_fields=["status", "encerrada_em"])
 
-        serializer = ComandaDetailSerializer(
-            annotated_comandas_queryset().prefetch_related(
-                Prefetch(
-                    "itens",
-                    queryset=ItemComanda.objects.select_related("produto").all(),
-                )
-            ).get(pk=comanda.pk)
-        )
+        serializer = ComandaDetailSerializer(comanda_detail_queryset().get(pk=comanda.pk))
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"], url_path="itens")
@@ -195,12 +178,19 @@ class ComandaViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         produto = Produto.objects.get(pk=serializer.validated_data["produto_id"], ativo=True)
-        item = ItemComanda.objects.create(
+        item, created = ItemComanda.objects.get_or_create(
             comanda=comanda,
             produto=produto,
-            quantidade=serializer.validated_data["quantidade"],
-            preco_unitario=produto.preco_venda,
+            defaults={
+                "quantidade": serializer.validated_data["quantidade"],
+                "preco_unitario": produto.preco_venda,
+            },
         )
+
+        if not created:
+            item.quantidade += serializer.validated_data["quantidade"]
+            item.preco_unitario = produto.preco_venda
+            item.save(update_fields=["quantidade", "preco_unitario"])
 
         response_serializer = ItemComandaSerializer(item)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -209,6 +199,36 @@ class ComandaViewSet(viewsets.ModelViewSet):
 class ItemComandaViewSet(viewsets.ModelViewSet):
     queryset = ItemComanda.objects.select_related("comanda", "produto").all()
     serializer_class = ItemComandaSerializer
+
+    @action(detail=True, methods=["post"], url_path="incrementar")
+    def incrementar(self, request, pk=None):
+        item = self.get_object()
+        if item.comanda.status != Comanda.Status.ABERTA:
+            return Response(
+                {"detail": "Nao e possivel alterar itens de uma comanda encerrada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        item.quantidade += 1
+        item.save(update_fields=["quantidade"])
+        return Response(ItemComandaSerializer(item).data)
+
+    @action(detail=True, methods=["post"], url_path="decrementar")
+    def decrementar(self, request, pk=None):
+        item = self.get_object()
+        if item.comanda.status != Comanda.Status.ABERTA:
+            return Response(
+                {"detail": "Nao e possivel alterar itens de uma comanda encerrada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if item.quantidade <= 1:
+            item.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        item.quantidade -= 1
+        item.save(update_fields=["quantidade"])
+        return Response(ItemComandaSerializer(item).data)
 
 
 class DashboardSummaryView(APIView):

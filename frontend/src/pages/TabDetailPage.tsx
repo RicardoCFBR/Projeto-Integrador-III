@@ -4,7 +4,6 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import GridViewRoundedIcon from "@mui/icons-material/GridViewRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
@@ -13,6 +12,7 @@ import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
 import LockOpenRoundedIcon from "@mui/icons-material/LockOpenRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import PrintRoundedIcon from "@mui/icons-material/PrintRounded";
+import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import StorefrontRoundedIcon from "@mui/icons-material/StorefrontRounded";
@@ -34,7 +34,9 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTabs } from "../contexts/TabsContext";
 import {
     addItemToTab,
+    decrementTabItem,
     getTabDetail,
+    incrementTabItem,
     listProducts,
     type Product,
     type TabDetail,
@@ -49,6 +51,8 @@ type CategoryFilter = {
     value: string;
     label: string;
 };
+
+const EXCLUDED_TAB_CATEGORY_SLUGS = new Set(["mercearia", "conveniencia"]);
 
 function resolveProductPresentation(product: Product) {
     switch (product.categorySlug) {
@@ -178,10 +182,17 @@ export function TabDetailPage() {
     const items = detail?.items ?? [];
     const itemsCount = detail?.items.length ?? currentTab?.itemsCount ?? 0;
     const tabCode = currentTab?.tabLabel ?? "Comanda #----";
+    const commandProducts = useMemo(
+        () =>
+            products.filter(
+                (product) => !EXCLUDED_TAB_CATEGORY_SLUGS.has(product.categorySlug),
+            ),
+        [products],
+    );
 
     const categoryFilters = useMemo<CategoryFilter[]>(() => {
         const uniqueCategories = new Map<string, string>();
-        products.forEach((product) => {
+        commandProducts.forEach((product) => {
             uniqueCategories.set(product.categorySlug, product.categoryName);
         });
 
@@ -189,10 +200,10 @@ export function TabDetailPage() {
             { value: "todos", label: "Todos" },
             ...Array.from(uniqueCategories.entries()).map(([value, label]) => ({ value, label })),
         ];
-    }, [products]);
+    }, [commandProducts]);
 
     const visibleProducts = useMemo<ProductCard[]>(() => {
-        return products
+        return commandProducts
             .filter((product) => {
                 const matchesCategory =
                     selectedCategory === "todos" || product.categorySlug === selectedCategory;
@@ -208,7 +219,14 @@ export function TabDetailPage() {
                 ...product,
                 ...resolveProductPresentation(product),
             }));
-    }, [products, searchTerm, selectedCategory]);
+    }, [commandProducts, searchTerm, selectedCategory]);
+
+    async function refreshCurrentTab(tabId: string) {
+        const updatedDetail = await getTabDetail(tabId);
+        setDetail(updatedDetail);
+        await refreshTabs();
+        return updatedDetail;
+    }
 
     async function handleCreateTab() {
         if (!hasCustomerName) {
@@ -219,8 +237,8 @@ export function TabDetailPage() {
         try {
             setActionLoading(true);
             setPageError(null);
-            await createTab(draftCustomerName.trim());
-            navigate("/comandas");
+            const createdTab = await createTab(draftCustomerName.trim());
+            navigate(`/comandas/${createdTab.id}`);
         } catch (requestError) {
             setPageError(
                 requestError instanceof Error
@@ -263,14 +281,54 @@ export function TabDetailPage() {
             setActionLoading(true);
             setPageError(null);
             await addItemToTab(params.tabId, productId, 1);
-            const updatedDetail = await getTabDetail(params.tabId);
-            setDetail(updatedDetail);
-            await refreshTabs();
+            await refreshCurrentTab(params.tabId);
         } catch (requestError) {
             setPageError(
                 requestError instanceof Error
                     ? requestError.message
                     : "Nao foi possivel adicionar o item a comanda.",
+            );
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleIncrementItem(itemId: number) {
+        if (!params.tabId || isNewTab || isClosed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setPageError(null);
+            await incrementTabItem(itemId);
+            await refreshCurrentTab(params.tabId);
+        } catch (requestError) {
+            setPageError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Nao foi possivel aumentar a quantidade do item.",
+            );
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleDecrementItem(itemId: number) {
+        if (!params.tabId || isNewTab || isClosed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setPageError(null);
+            await decrementTabItem(itemId);
+            await refreshCurrentTab(params.tabId);
+        } catch (requestError) {
+            setPageError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Nao foi possivel diminuir a quantidade do item.",
             );
         } finally {
             setActionLoading(false);
@@ -284,6 +342,10 @@ export function TabDetailPage() {
 
         setDraftCustomerName(draftCustomerName.trim());
         setIsEditingCustomerName(false);
+
+        if (isNewTab) {
+            void handleCreateTab();
+        }
     }
 
     return (
@@ -331,7 +393,10 @@ export function TabDetailPage() {
             <Box
                 sx={{
                     display: "grid",
-                    gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) 420px" },
+                    gridTemplateColumns: {
+                        xs: "1fr",
+                        xl: "minmax(0, 1fr) 500px",
+                    },
                     gap: 3,
                     minHeight: "calc(100vh - 220px)",
                 }}
@@ -684,43 +749,91 @@ export function TabDetailPage() {
                                     borderRadius: "10px",
                                     bgcolor: "background.paper",
                                     display: "grid",
-                                    gridTemplateColumns: "52px minmax(0, 1fr) auto",
-                                    gap: 1.75,
+                                    gridTemplateColumns: "auto minmax(0, 1fr) auto",
+                                    gap: 1.25,
                                     alignItems: "center",
                                 }}
                             >
-                                <Box
-                                    sx={{
-                                        width: 44,
-                                        height: 44,
-                                        borderRadius: "8px",
-                                        display: "grid",
-                                        placeItems: "center",
-                                        bgcolor: "#eef3f1",
-                                        fontWeight: 800,
-                                    }}
-                                >
-                                    {item.quantityLabel}
-                                </Box>
+                                <Stack direction="row" spacing={0.5} alignItems="center">
+                                    <IconButton
+                                        aria-label={`Diminuir ${item.title}`}
+                                        color="inherit"
+                                        disabled={interactionsDisabled}
+                                        onClick={() => void handleDecrementItem(item.id)}
+                                        size="small"
+                                        sx={{
+                                            width: 32,
+                                            height: 32,
+                                            bgcolor: "#eef3f1",
+                                            color: "text.primary",
+                                            borderRadius: "8px",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <RemoveRoundedIcon fontSize="small" />
+                                    </IconButton>
 
-                                <Box>
-                                    <Typography sx={{ fontWeight: 700 }}>{item.title}</Typography>
+                                    <Box
+                                        sx={{
+                                            minWidth: 34,
+                                            height: 32,
+                                            px: 0.75,
+                                            borderRadius: "8px",
+                                            display: "grid",
+                                            placeItems: "center",
+                                            bgcolor: "#eef3f1",
+                                            fontWeight: 800,
+                                            fontSize: "0.82rem",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {item.quantityLabel}
+                                    </Box>
+
+                                    <IconButton
+                                        aria-label={`Aumentar ${item.title}`}
+                                        color="inherit"
+                                        disabled={interactionsDisabled}
+                                        onClick={() => void handleIncrementItem(item.id)}
+                                        size="small"
+                                        sx={{
+                                            width: 32,
+                                            height: 32,
+                                            bgcolor: "#eef3f1",
+                                            color: "text.primary",
+                                            borderRadius: "8px",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <AddRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                </Stack>
+
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography
+                                        sx={{
+                                            fontWeight: 700,
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {item.title}
+                                    </Typography>
                                     <Typography color="text.secondary" sx={{ fontSize: "0.78rem" }}>
                                         {item.timeLabel}
                                     </Typography>
                                 </Box>
 
-                                <Stack alignItems="flex-end" spacing={0.5}>
-                                    <Typography sx={{ fontWeight: 800 }}>{item.value}</Typography>
-                                    <IconButton
-                                        aria-label={`Remover ${item.title}`}
-                                        color="error"
-                                        disabled
-                                        size="small"
-                                    >
-                                        <CloseRoundedIcon fontSize="small" />
-                                    </IconButton>
-                                </Stack>
+                                <Typography
+                                    sx={{
+                                        fontWeight: 800,
+                                        whiteSpace: "nowrap",
+                                        justifySelf: "end",
+                                    }}
+                                >
+                                    {item.value}
+                                </Typography>
                             </Paper>
                         ))}
 
