@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
@@ -7,6 +7,7 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import GridViewRoundedIcon from "@mui/icons-material/GridViewRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import LiquorRoundedIcon from "@mui/icons-material/LiquorRounded";
+import LockOpenRoundedIcon from "@mui/icons-material/LockOpenRounded";
 import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import PrintRoundedIcon from "@mui/icons-material/PrintRounded";
@@ -29,7 +30,7 @@ import {
 } from "@mui/material";
 import { Link, useParams } from "react-router-dom";
 
-import { getMockTabById } from "../mocks/tabs";
+import { getMockTabById, type TabStatus } from "../mocks/tabs";
 
 type QuickCategory = {
     label: string;
@@ -129,7 +130,24 @@ const orderItems: OrderItem[] = [
 export function TabDetailPage() {
     const params = useParams<{ tabId?: string }>();
     const tab = getMockTabById(params.tabId);
-    const isClosed = tab.status === "closed";
+    const [status, setStatus] = useState<TabStatus>(tab.status);
+
+    useEffect(() => {
+        setStatus(tab.status);
+    }, [tab.id, tab.status]);
+
+    const isClosed = status === "closed";
+    const statusLabel = isClosed ? "Encerrada" : "Aberta";
+    const primaryActionLabel = isClosed
+        ? "Reabrir Comanda"
+        : "Fechar Comanda / Ir para Pagamento";
+    const statusHint = isClosed
+        ? "Esta comanda esta encerrada. Reabra para voltar a lancar itens."
+        : "Comanda aberta para novos lancamentos.";
+
+    function handleToggleStatus() {
+        setStatus((currentStatus) => (currentStatus === "open" ? "closed" : "open"));
+    }
 
     return (
         <Stack spacing={3}>
@@ -198,41 +216,41 @@ export function TabDetailPage() {
                         >
                             <Box>
                                 <Typography variant="h4" sx={{ mb: 1 }}>
-                                    Lançamentos para:{" "}
+                                    Lancamentos para:{" "}
                                     <Box component="span" sx={{ color: "secondary.main" }}>
                                         {tab.customerName}
                                     </Box>
                                 </Typography>
 
                                 <Stack spacing={0.35}>
-                                    <Stack direction="row" spacing={1.25} alignItems="center">
-                                        <Typography
-                                            color="text.secondary"
-                                            sx={{
-                                                fontSize: "0.78rem",
-                                                fontWeight: 800,
-                                                letterSpacing: "0.12em",
-                                                textTransform: "uppercase",
-                                            }}
-                                        >
-                                            Comanda n°: {tab.tabLabel.replace("Comanda ", "")}
-                                        </Typography>
-                                    </Stack>
-                                    <Box
+                                    <Typography
+                                        color="text.secondary"
                                         sx={{
-                                            pl: "0px",
+                                            fontSize: "0.78rem",
+                                            fontWeight: 800,
+                                            letterSpacing: "0.12em",
+                                            textTransform: "uppercase",
                                         }}
                                     >
-                                        <Typography
-                                            sx={{
-                                                fontSize: "0.78rem",
-                                                fontWeight: 800,
-                                                color: isClosed ? "text.secondary" : "primary.main",
-                                            }}
-                                        >
-                                            Status: {isClosed ? "Encerrada" : "Aberta"}
-                                        </Typography>
-                                    </Box>
+                                        Comanda n°: {tab.tabLabel.replace("Comanda ", "")}
+                                    </Typography>
+
+                                    <Typography
+                                        sx={{
+                                            fontSize: "0.78rem",
+                                            fontWeight: 800,
+                                            color: isClosed ? "text.secondary" : "primary.main",
+                                        }}
+                                    >
+                                        Status: {statusLabel}
+                                    </Typography>
+
+                                    <Typography
+                                        color="text.secondary"
+                                        sx={{ fontSize: "0.8rem" }}
+                                    >
+                                        {statusHint}
+                                    </Typography>
                                 </Stack>
                             </Box>
 
@@ -419,7 +437,7 @@ export function TabDetailPage() {
                         <Typography variant="h5">Extrato da Comanda</Typography>
                         <Chip
                             color="secondary"
-                            label="4 itens"
+                            label={`${orderItems.length} itens`}
                             sx={{ fontWeight: 800, borderRadius: "999px" }}
                         />
                     </Stack>
@@ -465,6 +483,7 @@ export function TabDetailPage() {
                                     <IconButton
                                         aria-label={`Remover ${item.title}`}
                                         color="error"
+                                        disabled={isClosed}
                                         size="small"
                                     >
                                         <CloseRoundedIcon fontSize="small" />
@@ -486,7 +505,9 @@ export function TabDetailPage() {
                                 opacity: 0.75,
                             }}
                         >
-                            Adicione itens para atualizar o total
+                            {isClosed
+                                ? "Comanda encerrada. Reabra para adicionar novos itens."
+                                : "Adicione itens para atualizar o total."}
                         </Box>
                     </Stack>
 
@@ -519,24 +540,32 @@ export function TabDetailPage() {
                             </Stack>
 
                             <Button
-                                disabled={isClosed}
                                 fullWidth
+                                onClick={handleToggleStatus}
                                 size="large"
-                                startIcon={<PaymentsRoundedIcon />}
+                                startIcon={
+                                    isClosed ? <LockOpenRoundedIcon /> : <PaymentsRoundedIcon />
+                                }
                                 sx={{
                                     mt: 1,
                                     minHeight: 56,
                                     borderRadius: "10px",
-                                    background:
-                                        "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)",
-                                    color: "#083f10",
-                                    boxShadow: "0 16px 32px rgba(28, 109, 37, 0.16)",
+                                    background: isClosed
+                                        ? "linear-gradient(135deg, #d9dedd 0%, #eff2f1 100%)"
+                                        : "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)",
+                                    color: isClosed ? "#435150" : "#083f10",
+                                    boxShadow: isClosed
+                                        ? "0 14px 28px rgba(67, 81, 80, 0.10)"
+                                        : "0 16px 32px rgba(28, 109, 37, 0.16)",
+                                    "&:hover": {
+                                        background: isClosed
+                                            ? "linear-gradient(135deg, #cfd5d3 0%, #e7ebea 100%)"
+                                            : "linear-gradient(135deg, #16571d 0%, #88df82 100%)",
+                                    },
                                 }}
                                 variant="contained"
                             >
-                                {isClosed
-                                    ? "Comanda Encerrada"
-                                    : "Fechar Comanda / Ir para Pagamento"}
+                                {primaryActionLabel}
                             </Button>
 
                             <Button fullWidth startIcon={<PrintRoundedIcon />} variant="text">
