@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useTabs } from "../contexts/TabsContext";
 
 export function TabsPage() {
-    const { tabs } = useTabs();
+    const { error, loading, tabs } = useTabs();
     const closedCount = tabs.filter((tab) => tab.status === "closed").length;
     const activeCount = tabs.length - closedCount;
 
@@ -49,6 +49,12 @@ export function TabsPage() {
             </section>
 
             <section className="tabs-grid" aria-label="Lista de comandas">
+                {loading ? <p>Carregando comandas...</p> : null}
+                {!loading && error ? <p>Erro ao carregar comandas: {error}</p> : null}
+                {!loading && !error && tabs.length === 0 ? (
+                    <p>Nenhuma comanda aberta ou encerrada por enquanto.</p>
+                ) : null}
+
                 {tabs.map((tab) => (
                     <Link
                         aria-label={`Abrir comanda de ${tab.customerName}`}
@@ -65,15 +71,11 @@ export function TabsPage() {
                                     <p>{tab.elapsedTime}</p>
                                 </div>
 
-                                {tab.note ? (
-                                    <p
-                                        className="tab-card__note"
-                                    >
-                                        {tab.note}
-                                    </p>
-                                ) : (
-                                    <div className="tab-card__spacer" />
-                                )}
+                                <p className="tab-card__note">
+                                    {tab.itemsCount === 1
+                                        ? "1 item lancado"
+                                        : `${tab.itemsCount} itens lancados`}
+                                </p>
 
                                 <div className="tab-card__footer">
                                     <span>{tab.totalLabel}</span>

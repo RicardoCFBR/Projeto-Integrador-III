@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
@@ -8,15 +8,14 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import GridViewRoundedIcon from "@mui/icons-material/GridViewRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
-import LiquorRoundedIcon from "@mui/icons-material/LiquorRounded";
-import LockOpenRoundedIcon from "@mui/icons-material/LockOpenRounded";
+import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
+import LockOpenRoundedIcon from "@mui/icons-material/LockOpenRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import PrintRoundedIcon from "@mui/icons-material/PrintRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import SportsBarRoundedIcon from "@mui/icons-material/SportsBarRounded";
-import WineBarRoundedIcon from "@mui/icons-material/WineBarRounded";
+import StorefrontRoundedIcon from "@mui/icons-material/StorefrontRounded";
 import {
     alpha,
     Box,
@@ -33,151 +32,249 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useTabs } from "../contexts/TabsContext";
+import {
+    addItemToTab,
+    getTabDetail,
+    listProducts,
+    type Product,
+    type TabDetail,
+} from "../services/barControlApi";
 
-type QuickCategory = {
-    label: string;
-    selected?: boolean;
-};
-
-type ProductCard = {
-    id: number;
-    title: string;
-    subtitle: string;
-    price: string;
-    tone: string;
+type ProductCard = Product & {
     icon: ReactNode;
+    tone: string;
 };
 
-type OrderItem = {
-    id: number;
-    quantity: string;
-    title: string;
-    timeLabel: string;
+type CategoryFilter = {
     value: string;
+    label: string;
 };
 
-const quickCategories: QuickCategory[] = [
-    { label: "Bebidas", selected: true },
-    { label: "Porcoes" },
-    { label: "Drinks" },
-];
-
-const productCards: ProductCard[] = [
-    {
-        id: 1,
-        title: "Cerveja 600ml",
-        subtitle: "Original, Heineken, Spaten",
-        price: "R$ 16,90",
-        tone: "#fff3e0",
-        icon: <SportsBarRoundedIcon fontSize="large" />,
-    },
-    {
-        id: 2,
-        title: "Batata Frita",
-        subtitle: "Porcao inteira (400g)",
-        price: "R$ 42,00",
-        tone: "#fff1ea",
-        icon: <RestaurantRoundedIcon fontSize="large" />,
-    },
-    {
-        id: 3,
-        title: "Dose de Gin",
-        subtitle: "Tanqueray + Tonica",
-        price: "R$ 28,00",
-        tone: "#edf5ff",
-        icon: <LocalBarRoundedIcon fontSize="large" />,
-    },
-    {
-        id: 4,
-        title: "Caipirinha",
-        subtitle: "Limao com Cachaca",
-        price: "R$ 22,00",
-        tone: "#effaf1",
-        icon: <LiquorRoundedIcon fontSize="large" />,
-    },
-    {
-        id: 5,
-        title: "Taca de Vinho",
-        subtitle: "Tinto Malbec 150ml",
-        price: "R$ 24,00",
-        tone: "#fff0f0",
-        icon: <WineBarRoundedIcon fontSize="large" />,
-    },
-];
-
-const orderItems: OrderItem[] = [
-    {
-        id: 1,
-        quantity: "1x",
-        title: "Cerveja Spaten 600ml",
-        timeLabel: "Lancado ha 15 min",
-        value: "R$ 16,90",
-    },
-    {
-        id: 2,
-        quantity: "1x",
-        title: "Batata Frita c/ Cheddar",
-        timeLabel: "Lancado ha 12 min",
-        value: "R$ 48,00",
-    },
-    {
-        id: 3,
-        quantity: "2x",
-        title: "Dose de Gin Tanqueray",
-        timeLabel: "Lancado ha 2 min",
-        value: "R$ 56,00",
-    },
-];
+function resolveProductPresentation(product: Product) {
+    switch (product.categorySlug) {
+        case "bebidas":
+            return { icon: <LocalBarRoundedIcon fontSize="large" />, tone: "#fff3e0" };
+        case "drinks":
+            return { icon: <LocalBarRoundedIcon fontSize="large" />, tone: "#edf5ff" };
+        case "porcoes":
+        case "cozinha":
+            return { icon: <RestaurantRoundedIcon fontSize="large" />, tone: "#fff1ea" };
+        case "mercearia":
+        case "conveniencia":
+            return { icon: <StorefrontRoundedIcon fontSize="large" />, tone: "#effaf1" };
+        default:
+            return { icon: <Inventory2RoundedIcon fontSize="large" />, tone: "#f2f4f7" };
+    }
+}
 
 export function TabDetailPage() {
     const navigate = useNavigate();
     const params = useParams<{ tabId?: string }>();
-    const { createTab, getTabById, updateTabStatus } = useTabs();
-    const tab = getTabById(params.tabId);
+    const { createTab, refreshTabs, tabs, updateTabStatus } = useTabs();
     const isNewTab = params.tabId === "nova";
-    const isClosed = !isNewTab && tab.status === "closed";
+    const summaryTab = tabs.find((tab) => tab.id === params.tabId) ?? null;
+
+    const [detail, setDetail] = useState<TabDetail | null>(null);
+    const [products, setProducts] = useState<Product[]>([]);
     const [draftCustomerName, setDraftCustomerName] = useState("");
     const [isEditingCustomerName, setIsEditingCustomerName] = useState(false);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [productsLoading, setProductsLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [pageError, setPageError] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState("todos");
 
     useEffect(() => {
-        if (isNewTab) {
-            setDraftCustomerName("");
-            setIsEditingCustomerName(false);
-            return;
+        let cancelled = false;
+
+        async function loadProductsData() {
+            setProductsLoading(true);
+            try {
+                const response = await listProducts();
+                if (!cancelled) {
+                    setProducts(response);
+                }
+            } catch (requestError) {
+                if (!cancelled) {
+                    setPageError(
+                        requestError instanceof Error
+                            ? requestError.message
+                            : "Nao foi possivel carregar os produtos.",
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setProductsLoading(false);
+                }
+            }
         }
 
-        setDraftCustomerName(tab.customerName);
-        setIsEditingCustomerName(false);
-    }, [isNewTab, tab.customerName, tab.id]);
+        void loadProductsData();
 
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadTabDetail() {
+            if (isNewTab || !params.tabId) {
+                setDetail(null);
+                setDraftCustomerName("");
+                setIsEditingCustomerName(false);
+                return;
+            }
+
+            setDetailLoading(true);
+            setPageError(null);
+            try {
+                const response = await getTabDetail(params.tabId);
+                if (!cancelled) {
+                    setDetail(response);
+                    setDraftCustomerName(response.customerName);
+                    setIsEditingCustomerName(false);
+                }
+            } catch (requestError) {
+                if (!cancelled) {
+                    setPageError(
+                        requestError instanceof Error
+                            ? requestError.message
+                            : "Nao foi possivel carregar a comanda.",
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setDetailLoading(false);
+                }
+            }
+        }
+
+        void loadTabDetail();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isNewTab, params.tabId]);
+
+    const currentTab = detail ?? summaryTab;
+    const isClosed = !isNewTab && currentTab?.status === "closed";
     const hasCustomerName = draftCustomerName.trim().length > 0;
-    const customerNameLabel = hasCustomerName ? draftCustomerName.trim() : tab.customerName;
+    const customerNameLabel = isNewTab
+        ? hasCustomerName
+            ? draftCustomerName.trim()
+            : "Inserir nome do cliente"
+        : currentTab?.customerName ?? "Carregando...";
     const statusLabel = isNewTab ? "Nova" : isClosed ? "Encerrada" : "Aberta";
-    const primaryActionLabel = isNewTab
-        ? "Abrir Comanda"
-        : isClosed
-          ? "Reabrir Comanda"
-          : "Fechar Comanda / Ir para Pagamento";
     const statusHint = isNewTab
         ? "Informe o nome do cliente e confirme para inserir a comanda no mural."
         : isClosed
           ? "Esta comanda esta encerrada. Reabra para voltar a lancar itens."
           : "Comanda aberta para novos lancamentos.";
-    const interactionsDisabled = isNewTab || isClosed;
+    const interactionsDisabled = isNewTab || isClosed || detailLoading || actionLoading;
+    const totalValue = currentTab?.totalValue ?? "R$ 0,00";
+    const items = detail?.items ?? [];
+    const itemsCount = detail?.items.length ?? currentTab?.itemsCount ?? 0;
+    const tabCode = currentTab?.tabLabel ?? "Comanda #----";
 
-    function handleToggleStatus() {
-        if (isNewTab) {
-            if (!hasCustomerName) {
-                setIsEditingCustomerName(true);
-                return;
-            }
+    const categoryFilters = useMemo<CategoryFilter[]>(() => {
+        const uniqueCategories = new Map<string, string>();
+        products.forEach((product) => {
+            uniqueCategories.set(product.categorySlug, product.categoryName);
+        });
 
-            createTab(draftCustomerName.trim());
-            navigate("/comandas");
+        return [
+            { value: "todos", label: "Todos" },
+            ...Array.from(uniqueCategories.entries()).map(([value, label]) => ({ value, label })),
+        ];
+    }, [products]);
+
+    const visibleProducts = useMemo<ProductCard[]>(() => {
+        return products
+            .filter((product) => {
+                const matchesCategory =
+                    selectedCategory === "todos" || product.categorySlug === selectedCategory;
+                const normalizedSearch = searchTerm.trim().toLowerCase();
+                const matchesSearch =
+                    normalizedSearch.length === 0 ||
+                    product.name.toLowerCase().includes(normalizedSearch) ||
+                    product.description.toLowerCase().includes(normalizedSearch);
+
+                return matchesCategory && matchesSearch;
+            })
+            .map((product) => ({
+                ...product,
+                ...resolveProductPresentation(product),
+            }));
+    }, [products, searchTerm, selectedCategory]);
+
+    async function handleCreateTab() {
+        if (!hasCustomerName) {
+            setIsEditingCustomerName(true);
             return;
         }
 
-        updateTabStatus(tab.id, isClosed ? "open" : "closed");
+        try {
+            setActionLoading(true);
+            setPageError(null);
+            await createTab(draftCustomerName.trim());
+            navigate("/comandas");
+        } catch (requestError) {
+            setPageError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Nao foi possivel abrir a comanda.",
+            );
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleToggleStatus() {
+        if (isNewTab || !params.tabId) {
+            await handleCreateTab();
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setPageError(null);
+            const response = await updateTabStatus(params.tabId, isClosed ? "open" : "closed");
+            setDetail(response);
+        } catch (requestError) {
+            setPageError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Nao foi possivel atualizar a comanda.",
+            );
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleAddProduct(productId: number) {
+        if (!params.tabId || isNewTab) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setPageError(null);
+            await addItemToTab(params.tabId, productId, 1);
+            const updatedDetail = await getTabDetail(params.tabId);
+            setDetail(updatedDetail);
+            await refreshTabs();
+        } catch (requestError) {
+            setPageError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Nao foi possivel adicionar o item a comanda.",
+            );
+        } finally {
+            setActionLoading(false);
+        }
     }
 
     function handleCustomerNameSubmit() {
@@ -260,9 +357,10 @@ export function TabDetailPage() {
                                     <Box
                                         component="span"
                                         sx={{
-                                            color: hasCustomerName
-                                                ? "secondary.main"
-                                                : "text.secondary",
+                                            color:
+                                                isNewTab && !hasCustomerName
+                                                    ? "text.secondary"
+                                                    : "secondary.main",
                                         }}
                                     >
                                         {customerNameLabel}
@@ -325,7 +423,7 @@ export function TabDetailPage() {
                                             textTransform: "uppercase",
                                         }}
                                     >
-                                        Comanda n°: {tab.tabLabel.replace("Comanda ", "")}
+                                        Comanda no: {tabCode.replace("Comanda #", "#")}
                                     </Typography>
 
                                     <Typography
@@ -349,9 +447,11 @@ export function TabDetailPage() {
                             </Box>
 
                             <TextField
-                                disabled={interactionsDisabled}
+                                disabled={productsLoading || interactionsDisabled}
                                 fullWidth
                                 placeholder="O que o cliente deseja hoje?"
+                                value={searchTerm}
+                                onChange={(event) => setSearchTerm(event.target.value)}
                                 sx={{
                                     maxWidth: 420,
                                     "& .MuiOutlinedInput-root": {
@@ -369,6 +469,20 @@ export function TabDetailPage() {
                             />
                         </Stack>
 
+                        {pageError ? (
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 2,
+                                    borderRadius: "10px",
+                                    border: "1px solid rgba(167, 59, 33, 0.18)",
+                                    bgcolor: "#fff5f2",
+                                }}
+                            >
+                                <Typography color="error">{pageError}</Typography>
+                            </Paper>
+                        ) : null}
+
                         <Stack
                             direction={{ xs: "column", lg: "row" }}
                             justifyContent="space-between"
@@ -383,12 +497,19 @@ export function TabDetailPage() {
                             </Stack>
 
                             <Stack direction="row" spacing={1.25} flexWrap="wrap">
-                                {quickCategories.map((category) => (
+                                {categoryFilters.map((category) => (
                                     <Chip
-                                        key={category.label}
+                                        key={category.value}
                                         label={category.label}
-                                        color={category.selected ? "primary" : "default"}
-                                        variant={category.selected ? "filled" : "outlined"}
+                                        color={
+                                            selectedCategory === category.value ? "primary" : "default"
+                                        }
+                                        onClick={() => setSelectedCategory(category.value)}
+                                        variant={
+                                            selectedCategory === category.value
+                                                ? "filled"
+                                                : "outlined"
+                                        }
                                         sx={{
                                             borderRadius: "999px",
                                             fontWeight: 800,
@@ -410,7 +531,19 @@ export function TabDetailPage() {
                                 gap: 2.5,
                             }}
                         >
-                            {productCards.map((product) => (
+                            {productsLoading ? (
+                                <Typography color="text.secondary">
+                                    Carregando produtos...
+                                </Typography>
+                            ) : null}
+
+                            {!productsLoading && visibleProducts.length === 0 ? (
+                                <Typography color="text.secondary">
+                                    Nenhum produto encontrado para esse filtro.
+                                </Typography>
+                            ) : null}
+
+                            {visibleProducts.map((product) => (
                                 <Paper
                                     elevation={0}
                                     key={product.id}
@@ -443,10 +576,10 @@ export function TabDetailPage() {
 
                                         <Box>
                                             <Typography variant="h6" sx={{ mb: 0.5 }}>
-                                                {product.title}
+                                                {product.name}
                                             </Typography>
                                             <Typography color="text.secondary">
-                                                {product.subtitle}
+                                                {product.description || product.categoryName}
                                             </Typography>
                                         </Box>
 
@@ -467,8 +600,9 @@ export function TabDetailPage() {
                                             </Typography>
 
                                             <IconButton
-                                                aria-label={`Adicionar ${product.title}`}
+                                                aria-label={`Adicionar ${product.name}`}
                                                 disabled={interactionsDisabled}
+                                                onClick={() => void handleAddProduct(product.id)}
                                                 sx={{
                                                     bgcolor: "primary.main",
                                                     color: "primary.contrastText",
@@ -531,13 +665,17 @@ export function TabDetailPage() {
                         <Typography variant="h5">Extrato da Comanda</Typography>
                         <Chip
                             color="secondary"
-                            label={`${orderItems.length} itens`}
+                            label={`${itemsCount} ${itemsCount === 1 ? "item" : "itens"}`}
                             sx={{ fontWeight: 800, borderRadius: "999px" }}
                         />
                     </Stack>
 
                     <Stack spacing={1.75} sx={{ px: 3.5, pb: 3, flex: 1, overflow: "auto" }}>
-                        {orderItems.map((item) => (
+                        {detailLoading && !isNewTab ? (
+                            <Typography color="text.secondary">Carregando extrato...</Typography>
+                        ) : null}
+
+                        {items.map((item) => (
                             <Paper
                                 elevation={0}
                                 key={item.id}
@@ -562,7 +700,7 @@ export function TabDetailPage() {
                                         fontWeight: 800,
                                     }}
                                 >
-                                    {item.quantity}
+                                    {item.quantityLabel}
                                 </Box>
 
                                 <Box>
@@ -577,7 +715,7 @@ export function TabDetailPage() {
                                     <IconButton
                                         aria-label={`Remover ${item.title}`}
                                         color="error"
-                                        disabled={interactionsDisabled}
+                                        disabled
                                         size="small"
                                     >
                                         <CloseRoundedIcon fontSize="small" />
@@ -586,25 +724,27 @@ export function TabDetailPage() {
                             </Paper>
                         ))}
 
-                        <Box
-                            sx={{
-                                minHeight: 92,
-                                borderRadius: "10px",
-                                border: "1px dashed rgba(117, 124, 123, 0.24)",
-                                display: "grid",
-                                placeItems: "center",
-                                color: "text.secondary",
-                                fontSize: "0.82rem",
-                                fontStyle: "italic",
-                                opacity: 0.75,
-                            }}
-                        >
-                            {isNewTab
-                                ? "Defina o nome do cliente para inserir esta comanda no mural."
-                                : isClosed
-                                  ? "Comanda encerrada. Reabra para adicionar novos itens."
-                                  : "Adicione itens para atualizar o total."}
-                        </Box>
+                        {items.length === 0 ? (
+                            <Box
+                                sx={{
+                                    minHeight: 92,
+                                    borderRadius: "10px",
+                                    border: "1px dashed rgba(117, 124, 123, 0.24)",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    color: "text.secondary",
+                                    fontSize: "0.82rem",
+                                    fontStyle: "italic",
+                                    opacity: 0.75,
+                                }}
+                            >
+                                {isNewTab
+                                    ? "Defina o nome do cliente para inserir esta comanda no mural."
+                                    : isClosed
+                                      ? "Comanda encerrada. Reabra para adicionar novos itens."
+                                      : "Adicione itens para atualizar o total."}
+                            </Box>
+                        ) : null}
                     </Stack>
 
                     <Box
@@ -618,7 +758,7 @@ export function TabDetailPage() {
                         <Stack spacing={1.5}>
                             <Stack direction="row" justifyContent="space-between">
                                 <Typography color="text.secondary">Subtotal</Typography>
-                                <Typography color="text.secondary">R$ 120,90</Typography>
+                                <Typography color="text.secondary">{totalValue}</Typography>
                             </Stack>
                             <Divider />
                             <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -631,14 +771,14 @@ export function TabDetailPage() {
                                         color: "primary.main",
                                     }}
                                 >
-                                    R$ 120,90
+                                    {totalValue}
                                 </Typography>
                             </Stack>
 
                             <Button
                                 fullWidth
-                                disabled={isNewTab && !hasCustomerName}
-                                onClick={handleToggleStatus}
+                                disabled={actionLoading || (isNewTab && !hasCustomerName)}
+                                onClick={() => void handleToggleStatus()}
                                 size="large"
                                 startIcon={
                                     isNewTab ? (
@@ -653,11 +793,9 @@ export function TabDetailPage() {
                                     mt: 1,
                                     minHeight: 56,
                                     borderRadius: "10px",
-                                    background: isNewTab
-                                        ? "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)"
-                                        : isClosed
-                                          ? "linear-gradient(135deg, #d9dedd 0%, #eff2f1 100%)"
-                                          : "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)",
+                                    background: isClosed && !isNewTab
+                                        ? "linear-gradient(135deg, #d9dedd 0%, #eff2f1 100%)"
+                                        : "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)",
                                     color: isClosed && !isNewTab ? "#435150" : "#083f10",
                                     boxShadow: isClosed && !isNewTab
                                         ? "0 14px 28px rgba(67, 81, 80, 0.10)"
@@ -675,7 +813,11 @@ export function TabDetailPage() {
                                 }}
                                 variant="contained"
                             >
-                                {primaryActionLabel}
+                                {isNewTab
+                                    ? "Abrir Comanda"
+                                    : isClosed
+                                      ? "Reabrir Comanda"
+                                      : "Fechar Comanda / Ir para Pagamento"}
                             </Button>
 
                             <Button fullWidth startIcon={<PrintRoundedIcon />} variant="text">
