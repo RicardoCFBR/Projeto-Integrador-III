@@ -9,6 +9,7 @@ import { Route, Routes } from "react-router-dom";
 
 import { Sidebar } from "./components/layout/Sidebar";
 import { Topbar } from "./components/layout/Topbar";
+import { TabsProvider } from "./contexts/TabsContext";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TabDetailPage } from "./pages/TabDetailPage";
 import { TabsPage } from "./pages/TabsPage";
@@ -76,29 +77,31 @@ export default function App() {
         <ThemeProvider theme={theme}>
             <CssBaseline />
 
-            <Box
-                sx={{
-                    minHeight: "100vh",
-                    display: "grid",
-                    gridTemplateColumns: { xs: "1fr", md: "280px minmax(0, 1fr)" },
-                }}
-            >
-                <Sidebar />
+            <TabsProvider>
+                <Box
+                    sx={{
+                        minHeight: "100vh",
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", md: "280px minmax(0, 1fr)" },
+                    }}
+                >
+                    <Sidebar />
 
-                <Box sx={{ minWidth: 0 }}>
-                    <Topbar />
+                    <Box sx={{ minWidth: 0 }}>
+                        <Topbar />
 
-                    <Box component="main" className="app-shell__main">
-                        <Routes>
-                            <Route element={<TabsPage />} path="/" />
-                            <Route element={<TabsPage />} path="/comandas" />
-                            <Route element={<TabDetailPage />} path="/comandas/nova" />
-                            <Route element={<TabDetailPage />} path="/comandas/:tabId" />
-                            <Route element={<DashboardPage />} path="/dashboard" />
-                        </Routes>
+                        <Box component="main" className="app-shell__main">
+                            <Routes>
+                                <Route element={<TabsPage />} path="/" />
+                                <Route element={<TabsPage />} path="/comandas" />
+                                <Route element={<TabDetailPage />} path="/comandas/nova" />
+                                <Route element={<TabDetailPage />} path="/comandas/:tabId" />
+                                <Route element={<DashboardPage />} path="/dashboard" />
+                            </Routes>
+                        </Box>
                     </Box>
                 </Box>
-            </Box>
+            </TabsProvider>
         </ThemeProvider>
     );
 }

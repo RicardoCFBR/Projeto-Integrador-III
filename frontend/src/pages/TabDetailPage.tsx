@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
@@ -30,7 +30,7 @@ import {
 } from "@mui/material";
 import { Link, useParams } from "react-router-dom";
 
-import { getMockTabById, type TabStatus } from "../mocks/tabs";
+import { useTabs } from "../contexts/TabsContext";
 
 type QuickCategory = {
     label: string;
@@ -129,14 +129,9 @@ const orderItems: OrderItem[] = [
 
 export function TabDetailPage() {
     const params = useParams<{ tabId?: string }>();
-    const tab = getMockTabById(params.tabId);
-    const [status, setStatus] = useState<TabStatus>(tab.status);
-
-    useEffect(() => {
-        setStatus(tab.status);
-    }, [tab.id, tab.status]);
-
-    const isClosed = status === "closed";
+    const { getTabById, updateTabStatus } = useTabs();
+    const tab = getTabById(params.tabId);
+    const isClosed = tab.status === "closed";
     const statusLabel = isClosed ? "Encerrada" : "Aberta";
     const primaryActionLabel = isClosed
         ? "Reabrir Comanda"
@@ -146,7 +141,11 @@ export function TabDetailPage() {
         : "Comanda aberta para novos lancamentos.";
 
     function handleToggleStatus() {
-        setStatus((currentStatus) => (currentStatus === "open" ? "closed" : "open"));
+        if (tab.id === "nova") {
+            return;
+        }
+
+        updateTabStatus(tab.id, isClosed ? "open" : "closed");
     }
 
     return (
@@ -245,10 +244,7 @@ export function TabDetailPage() {
                                         Status: {statusLabel}
                                     </Typography>
 
-                                    <Typography
-                                        color="text.secondary"
-                                        sx={{ fontSize: "0.8rem" }}
-                                    >
+                                    <Typography color="text.secondary" sx={{ fontSize: "0.8rem" }}>
                                         {statusHint}
                                     </Typography>
                                 </Stack>

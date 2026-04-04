@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
 
-import { mockTabs } from "../mocks/tabs";
+import { useTabs } from "../contexts/TabsContext";
 
 export function TabsPage() {
-    const closedCount = mockTabs.filter((tab) => tab.status === "closed").length;
-    const activeCount = mockTabs.length - closedCount;
+    const { tabs } = useTabs();
+    const closedCount = tabs.filter((tab) => tab.status === "closed").length;
+    const activeCount = tabs.length - closedCount;
 
     const summaryCards = [
         { label: "Ativas", value: String(activeCount), accent: "primary" },
@@ -48,7 +49,7 @@ export function TabsPage() {
             </section>
 
             <section className="tabs-grid" aria-label="Lista de comandas">
-                {mockTabs.map((tab) => (
+                {tabs.map((tab) => (
                     <Link
                         aria-label={`Abrir comanda de ${tab.customerName}`}
                         className="tab-card-link"
