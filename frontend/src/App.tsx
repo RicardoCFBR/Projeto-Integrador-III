@@ -11,6 +11,8 @@ import { Sidebar } from "./components/layout/Sidebar";
 import { Topbar } from "./components/layout/Topbar";
 import { TabsProvider } from "./contexts/TabsContext";
 import { DashboardPage } from "./pages/DashboardPage";
+import { CashierPage } from "./pages/CashierPage";
+import { CashierOverviewPage } from "./pages/CashierOverviewPage";
 import { TabDetailPage } from "./pages/TabDetailPage";
 import { TabsPage } from "./pages/TabsPage";
 
@@ -95,6 +97,8 @@ export default function App() {
                                 <Route element={<TabsPage />} path="/" />
                                 <Route element={<TabsPage />} path="/comandas" />
                                 <Route element={<TabDetailPage />} path="/comandas/:tabId" />
+                                <Route element={<CashierOverviewPage />} path="/caixa" />
+                                <Route element={<CashierPage />} path="/caixa/nova-venda" />
                                 <Route element={<DashboardPage />} path="/dashboard" />
                             </Routes>
                         </Box>

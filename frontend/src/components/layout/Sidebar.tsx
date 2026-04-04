@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
+import PointOfSaleRoundedIcon from "@mui/icons-material/PointOfSaleRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import {
@@ -26,6 +27,7 @@ type NavItem = {
 const navItems: NavItem[] = [
     { label: "Dashboard", to: "/dashboard", icon: <DashboardRoundedIcon /> },
     { label: "Comandas", to: "/comandas", icon: <ReceiptLongRoundedIcon /> },
+    { label: "Venda no Caixa", to: "/caixa", icon: <PointOfSaleRoundedIcon /> },
     { label: "Estoque", icon: <Inventory2RoundedIcon /> },
     { label: "Financeiro", icon: <PaymentsRoundedIcon /> },
     { label: "Configuracoes", icon: <SettingsRoundedIcon /> },
