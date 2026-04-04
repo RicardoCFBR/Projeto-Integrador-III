@@ -29,6 +29,8 @@ import {
 } from "@mui/material";
 import { Link, useParams } from "react-router-dom";
 
+import { getMockTabById } from "../mocks/tabs";
+
 type QuickCategory = {
     label: string;
     selected?: boolean;
@@ -124,48 +126,10 @@ const orderItems: OrderItem[] = [
     },
 ];
 
-const mockTabs = {
-    "1": {
-        customerName: "Ricardo",
-        tabLabel: "Comanda #2402",
-        status: "aberta",
-    },
-    "2": {
-        customerName: "Joao do Balcao",
-        tabLabel: "Comanda #2403",
-        status: "aberta",
-    },
-    "3": {
-        customerName: "Ana Clara",
-        tabLabel: "Comanda #2404",
-        status: "aberta",
-    },
-    "4": {
-        customerName: "Marcos",
-        tabLabel: "Comanda #2405",
-        status: "encerrada",
-    },
-    "5": {
-        customerName: "Carlos Eduardo",
-        tabLabel: "Comanda #2406",
-        status: "aberta",
-    },
-    "6": {
-        customerName: "Beatriz Lopes",
-        tabLabel: "Comanda #2407",
-        status: "aberta",
-    },
-    nova: {
-        customerName: "Nova Comanda",
-        tabLabel: "Nova abertura",
-        status: "aberta",
-    },
-} as const;
-
 export function TabDetailPage() {
     const params = useParams<{ tabId?: string }>();
-    const key = params.tabId && params.tabId in mockTabs ? params.tabId : "1";
-    const tab = mockTabs[key as keyof typeof mockTabs];
+    const tab = getMockTabById(params.tabId);
+    const isClosed = tab.status === "closed";
 
     return (
         <Stack spacing={3}>
@@ -234,7 +198,7 @@ export function TabDetailPage() {
                         >
                             <Box>
                                 <Typography variant="h4" sx={{ mb: 1 }}>
-                                    Lancando para:{" "}
+                                    Lançamentos para:{" "}
                                     <Box component="span" sx={{ color: "secondary.main" }}>
                                         {tab.customerName}
                                     </Box>
@@ -259,23 +223,21 @@ export function TabDetailPage() {
                                             pl: "0px",
                                         }}
                                     >
-                                    <Typography
-                                        sx={{
-                                            fontSize: "0.78rem",
-                                            fontWeight: 800,
-                                            color:
-                                                tab.status === "aberta"
-                                                    ? "primary.main"
-                                                    : "text.secondary",
-                                        }}
-                                    >
-                                        Status: {tab.status === "aberta" ? "Aberta" : "Encerrada"}
-                                    </Typography>
+                                        <Typography
+                                            sx={{
+                                                fontSize: "0.78rem",
+                                                fontWeight: 800,
+                                                color: isClosed ? "text.secondary" : "primary.main",
+                                            }}
+                                        >
+                                            Status: {isClosed ? "Encerrada" : "Aberta"}
+                                        </Typography>
                                     </Box>
                                 </Stack>
                             </Box>
 
                             <TextField
+                                disabled={isClosed}
                                 fullWidth
                                 placeholder="O que o cliente deseja hoje?"
                                 sx={{
@@ -394,9 +356,14 @@ export function TabDetailPage() {
 
                                             <IconButton
                                                 aria-label={`Adicionar ${product.title}`}
+                                                disabled={isClosed}
                                                 sx={{
                                                     bgcolor: "primary.main",
                                                     color: "primary.contrastText",
+                                                    "&.Mui-disabled": {
+                                                        bgcolor: "rgba(117, 124, 123, 0.16)",
+                                                        color: "rgba(36, 49, 50, 0.32)",
+                                                    },
                                                     "&:hover": {
                                                         bgcolor: "primary.dark",
                                                     },
@@ -552,6 +519,7 @@ export function TabDetailPage() {
                             </Stack>
 
                             <Button
+                                disabled={isClosed}
                                 fullWidth
                                 size="large"
                                 startIcon={<PaymentsRoundedIcon />}
@@ -566,7 +534,9 @@ export function TabDetailPage() {
                                 }}
                                 variant="contained"
                             >
-                                Fechar Comanda / Ir para Pagamento
+                                {isClosed
+                                    ? "Comanda Encerrada"
+                                    : "Fechar Comanda / Ir para Pagamento"}
                             </Button>
 
                             <Button fullWidth startIcon={<PrintRoundedIcon />} variant="text">
