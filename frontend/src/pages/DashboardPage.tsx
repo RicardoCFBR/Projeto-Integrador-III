@@ -100,10 +100,9 @@ export function DashboardPage() {
     }));
 
     return (
-        <>
-            <section className="page-header" aria-label="Resumo do dashboard">
+        <div className="page-stack">
+            <section className="dashboard-hero" aria-label="Resumo do dashboard">
                 <div>
-                    <span className="eyebrow">Analise de dados</span>
                     <h1>Dashboard de vendas por dia.</h1>
                     <p>
                         Esta rota consome o endpoint do Django e atende a exigencia de
@@ -122,7 +121,7 @@ export function DashboardPage() {
             </section>
 
             <section className="chart-panel" aria-labelledby="chart-title">
-                <div className="page-header">
+                <div className="dashboard-hero">
                     <div>
                         <h2 id="chart-title">Faturamento diario</h2>
                         <p>Os dados sao carregados a partir de `GET /api/dashboard/`.</p>
@@ -174,6 +173,6 @@ export function DashboardPage() {
                     </div>
                 ) : null}
             </section>
-        </>
+        </div>
     );
 }
