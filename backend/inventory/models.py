@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 
 
 class CategoriaProduto(models.Model):
@@ -154,3 +155,70 @@ class ItemComanda(models.Model):
 
     def __str__(self) -> str:
         return f"{self.comanda.codigo} - {self.produto.nome}"
+
+
+class SessaoCaixa(models.Model):
+    class Status(models.TextChoices):
+        ABERTO = "aberto", "Aberto"
+        FECHADO = "fechado", "Fechado"
+
+    operador_nome = models.CharField(max_length=120, default="Ricardo Silva")
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.ABERTO,
+    )
+    fundo_troco_inicial = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    aberto_em = models.DateTimeField(auto_now_add=True)
+    fechado_em = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-aberto_em"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["status"],
+                condition=Q(status="aberto"),
+                name="unique_open_cash_session",
+            )
+        ]
+        verbose_name = "Sessão de caixa"
+        verbose_name_plural = "Sessões de caixa"
+
+    def __str__(self) -> str:
+        return f"Caixa {self.get_status_display()} - {self.aberto_em:%d/%m/%Y %H:%M}"
+
+
+class MovimentacaoCaixa(models.Model):
+    class Tipo(models.TextChoices):
+        ABERTURA = "abertura", "Abertura"
+        SANGRIA = "sangria", "Sangria"
+        SUPRIMENTO = "suprimento", "Suprimento"
+        FECHAMENTO = "fechamento", "Fechamento"
+
+    sessao_caixa = models.ForeignKey(
+        SessaoCaixa,
+        on_delete=models.CASCADE,
+        related_name="movimentacoes",
+    )
+    codigo = models.CharField(max_length=20)
+    tipo = models.CharField(
+        max_length=12,
+        choices=Tipo.choices,
+    )
+    descricao = models.CharField(max_length=160, blank=True)
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-criado_em", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sessao_caixa", "codigo"],
+                name="unique_cash_movement_code_per_session",
+            )
+        ]
+        verbose_name = "Movimentação de caixa"
+        verbose_name_plural = "Movimentações de caixa"
+
+    def __str__(self) -> str:
+        return f"{self.codigo} - {self.get_tipo_display()}"

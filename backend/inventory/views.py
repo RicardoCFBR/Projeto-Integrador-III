@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Sum
 from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
@@ -12,7 +13,9 @@ from .models import (
     ComposicaoProduto,
     Insumo,
     ItemComanda,
+    MovimentacaoCaixa,
     Produto,
+    SessaoCaixa,
 )
 from .serializers import (
     CategoriaProdutoSerializer,
@@ -24,7 +27,11 @@ from .serializers import (
     InsumoSerializer,
     ItemComandaCreateSerializer,
     ItemComandaSerializer,
+    MovimentacaoCaixaCreateSerializer,
+    MovimentacaoCaixaSerializer,
     ProdutoSerializer,
+    SessaoCaixaAberturaSerializer,
+    SessaoCaixaSerializer,
 )
 
 
@@ -70,6 +77,19 @@ def generate_comanda_codigo():
         next_number = 2401
 
     return f"CMD-{next_number}"
+
+
+def get_open_cash_session():
+    return (
+        SessaoCaixa.objects.filter(status=SessaoCaixa.Status.ABERTO)
+        .order_by("-aberto_em")
+        .first()
+    )
+
+
+def generate_movimentacao_codigo(sessao_caixa):
+    next_number = sessao_caixa.movimentacoes.count() + 1
+    return f"MOV-{next_number:02d}"
 
 
 class CategoriaProdutoViewSet(viewsets.ModelViewSet):
@@ -270,4 +290,136 @@ class DashboardSummaryView(APIView):
                     if item["dia"] is not None
                 ],
             }
+        )
+
+
+class CashOverviewView(APIView):
+    def get(self, request):
+        sessao = get_open_cash_session()
+
+        if sessao is None:
+            return Response(
+                {
+                    "sessao_atual": None,
+                    "movimentacoes": [],
+                    "resumo": {
+                        "fundo_inicial": "0.00",
+                        "saldo_em_caixa": "0.00",
+                        "movimentacoes_count": 0,
+                        "vendas_count": 0,
+                    },
+                }
+            )
+
+        movimentacoes = sessao.movimentacoes.all()
+        total_sangrias = sum(
+            item.valor for item in movimentacoes if item.tipo == MovimentacaoCaixa.Tipo.SANGRIA
+        )
+        total_suprimentos = sum(
+            item.valor
+            for item in movimentacoes
+            if item.tipo == MovimentacaoCaixa.Tipo.SUPRIMENTO
+        )
+        saldo_em_caixa = sessao.fundo_troco_inicial + total_suprimentos - total_sangrias
+
+        return Response(
+            {
+                "sessao_atual": SessaoCaixaSerializer(sessao).data,
+                "movimentacoes": MovimentacaoCaixaSerializer(movimentacoes, many=True).data,
+                "resumo": {
+                    "fundo_inicial": sessao.fundo_troco_inicial,
+                    "saldo_em_caixa": saldo_em_caixa,
+                    "movimentacoes_count": movimentacoes.count(),
+                    "vendas_count": 0,
+                },
+            }
+        )
+
+
+class CashOpenView(APIView):
+    def post(self, request):
+        if get_open_cash_session() is not None:
+            return Response(
+                {"detail": "Ja existe uma sessao de caixa aberta."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = SessaoCaixaAberturaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            sessao = SessaoCaixa.objects.create(
+                operador_nome=serializer.validated_data.get("operador_nome", "Ricardo Silva"),
+                fundo_troco_inicial=serializer.validated_data["fundo_troco_inicial"],
+                status=SessaoCaixa.Status.ABERTO,
+            )
+            MovimentacaoCaixa.objects.create(
+                sessao_caixa=sessao,
+                codigo=generate_movimentacao_codigo(sessao),
+                tipo=MovimentacaoCaixa.Tipo.ABERTURA,
+                descricao="Abertura de caixa",
+                valor=sessao.fundo_troco_inicial,
+            )
+
+        return Response(CashOverviewView().get(request).data, status=status.HTTP_201_CREATED)
+
+
+class CashCloseView(APIView):
+    def post(self, request):
+        sessao = get_open_cash_session()
+        if sessao is None:
+            return Response(
+                {"detail": "Nao existe uma sessao de caixa aberta."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            MovimentacaoCaixa.objects.create(
+                sessao_caixa=sessao,
+                codigo=generate_movimentacao_codigo(sessao),
+                tipo=MovimentacaoCaixa.Tipo.FECHAMENTO,
+                descricao="Fechamento de caixa",
+                valor=0,
+            )
+            sessao.status = SessaoCaixa.Status.FECHADO
+            sessao.fechado_em = timezone.now()
+            sessao.save(update_fields=["status", "fechado_em"])
+
+        return Response(
+            {
+                "sessao_atual": None,
+                "movimentacoes": [],
+                "resumo": {
+                    "fundo_inicial": "0.00",
+                    "saldo_em_caixa": "0.00",
+                    "movimentacoes_count": 0,
+                    "vendas_count": 0,
+                },
+            }
+        )
+
+
+class CashMovementCreateView(APIView):
+    def post(self, request):
+        sessao = get_open_cash_session()
+        if sessao is None:
+            return Response(
+                {"detail": "Abra o caixa antes de registrar movimentacoes."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = MovimentacaoCaixaCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        movimentacao = MovimentacaoCaixa.objects.create(
+            sessao_caixa=sessao,
+            codigo=generate_movimentacao_codigo(sessao),
+            tipo=serializer.validated_data["tipo"],
+            descricao=serializer.validated_data.get("descricao", ""),
+            valor=serializer.validated_data["valor"],
+        )
+
+        return Response(
+            MovimentacaoCaixaSerializer(movimentacao).data,
+            status=status.HTTP_201_CREATED,
         )

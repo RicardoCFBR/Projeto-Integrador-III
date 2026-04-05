@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from .models import (
@@ -6,7 +8,9 @@ from .models import (
     ComposicaoProduto,
     Insumo,
     ItemComanda,
+    MovimentacaoCaixa,
     Produto,
+    SessaoCaixa,
 )
 
 
@@ -143,3 +147,60 @@ class ComandaDetailSerializer(serializers.ModelSerializer):
             "itens_count",
             "itens",
         ]
+
+
+class SessaoCaixaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SessaoCaixa
+        fields = [
+            "id",
+            "operador_nome",
+            "status",
+            "fundo_troco_inicial",
+            "aberto_em",
+            "fechado_em",
+        ]
+
+
+class MovimentacaoCaixaSerializer(serializers.ModelSerializer):
+    tipo_label = serializers.CharField(source="get_tipo_display", read_only=True)
+
+    class Meta:
+        model = MovimentacaoCaixa
+        fields = [
+            "id",
+            "codigo",
+            "tipo",
+            "tipo_label",
+            "descricao",
+            "valor",
+            "criado_em",
+        ]
+
+
+class SessaoCaixaAberturaSerializer(serializers.Serializer):
+    fundo_troco_inicial = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+    )
+    operador_nome = serializers.CharField(max_length=120, required=False, allow_blank=True)
+
+    def validate_operador_nome(self, value):
+        cleaned_value = value.strip()
+        return cleaned_value or "Ricardo Silva"
+
+
+class MovimentacaoCaixaCreateSerializer(serializers.Serializer):
+    tipo = serializers.ChoiceField(
+        choices=[
+            MovimentacaoCaixa.Tipo.SANGRIA,
+            MovimentacaoCaixa.Tipo.SUPRIMENTO,
+        ]
+    )
+    valor = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+    )
+    descricao = serializers.CharField(max_length=160, required=False, allow_blank=True)

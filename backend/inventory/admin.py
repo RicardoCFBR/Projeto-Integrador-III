@@ -6,7 +6,9 @@ from .models import (
     ComposicaoProduto,
     Insumo,
     ItemComanda,
+    MovimentacaoCaixa,
     Produto,
+    SessaoCaixa,
 )
 
 
@@ -50,3 +52,17 @@ class ItemComandaAdmin(admin.ModelAdmin):
     list_display = ("comanda", "produto", "quantidade", "preco_unitario", "criado_em")
     search_fields = ("comanda__codigo", "produto__nome")
     list_filter = ("criado_em",)
+
+
+@admin.register(SessaoCaixa)
+class SessaoCaixaAdmin(admin.ModelAdmin):
+    list_display = ("operador_nome", "status", "fundo_troco_inicial", "aberto_em", "fechado_em")
+    search_fields = ("operador_nome",)
+    list_filter = ("status", "aberto_em")
+
+
+@admin.register(MovimentacaoCaixa)
+class MovimentacaoCaixaAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "sessao_caixa", "tipo", "valor", "criado_em")
+    search_fields = ("codigo", "descricao", "sessao_caixa__operador_nome")
+    list_filter = ("tipo", "criado_em")

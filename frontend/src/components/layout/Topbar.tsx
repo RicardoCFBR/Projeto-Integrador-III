@@ -1,7 +1,11 @@
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
-import { AppBar, Avatar, Box, IconButton, Toolbar, Typography } from "@mui/material";
+import { AppBar, Avatar, Box, Chip, IconButton, Toolbar, Typography } from "@mui/material";
+
+import { useCashSession } from "../../contexts/CashSessionContext";
 
 export function Topbar() {
+    const { isCashOpen } = useCashSession();
+
     return (
         <AppBar
             color="transparent"
@@ -16,11 +20,22 @@ export function Topbar() {
             <Toolbar
                 sx={{
                     minHeight: "76px",
-                    justifyContent: "flex-end",
+                    justifyContent: "space-between",
                     gap: 2,
                     px: { xs: 2, md: 3.5 },
                 }}
             >
+                <Chip
+                    color={isCashOpen ? "success" : "default"}
+                    label={isCashOpen ? "Caixa Aberto" : "Caixa Fechado"}
+                    sx={{
+                        borderRadius: "999px",
+                        fontWeight: 800,
+                        bgcolor: isCashOpen ? "rgba(28, 109, 37, 0.12)" : "#f1f4f3",
+                        color: isCashOpen ? "primary.main" : "text.secondary",
+                    }}
+                />
+
                 <IconButton
                     aria-label="Notificacoes"
                     sx={{

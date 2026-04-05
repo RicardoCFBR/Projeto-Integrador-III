@@ -1,14 +1,18 @@
+import type { ReactElement } from "react";
+
 import {
     Box,
+    CircularProgress,
     CssBaseline,
     ThemeProvider,
     createTheme,
     responsiveFontSizes,
 } from "@mui/material";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import { Sidebar } from "./components/layout/Sidebar";
 import { Topbar } from "./components/layout/Topbar";
+import { CashSessionProvider, useCashSession } from "./contexts/CashSessionContext";
 import { TabsProvider } from "./contexts/TabsContext";
 import { DashboardPage } from "./pages/DashboardPage";
 import { CashierPage } from "./pages/CashierPage";
@@ -74,37 +78,92 @@ let theme = createTheme({
 
 theme = responsiveFontSizes(theme);
 
+function HomeRoute() {
+    const { isCashOpen, loading } = useCashSession();
+
+    if (loading) {
+        return (
+            <Box sx={{ minHeight: "40vh", display: "grid", placeItems: "center" }}>
+                <CircularProgress size={28} />
+            </Box>
+        );
+    }
+
+    return <Navigate replace to={isCashOpen ? "/comandas" : "/caixa"} />;
+}
+
+function CashEnabledRoute({ children }: { children: ReactElement }) {
+    const { isCashOpen, loading } = useCashSession();
+
+    if (loading) {
+        return (
+            <Box sx={{ minHeight: "40vh", display: "grid", placeItems: "center" }}>
+                <CircularProgress size={28} />
+            </Box>
+        );
+    }
+
+    if (!isCashOpen) {
+        return <Navigate replace to="/caixa" />;
+    }
+
+    return children;
+}
+
 export default function App() {
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
 
-            <TabsProvider>
-                <Box
-                    sx={{
-                        minHeight: "100vh",
-                        display: "grid",
-                        gridTemplateColumns: { xs: "1fr", md: "280px minmax(0, 1fr)" },
-                    }}
-                >
-                    <Sidebar />
+            <CashSessionProvider>
+                <TabsProvider>
+                    <Box
+                        sx={{
+                            minHeight: "100vh",
+                            display: "grid",
+                            gridTemplateColumns: { xs: "1fr", md: "280px minmax(0, 1fr)" },
+                        }}
+                    >
+                        <Sidebar />
 
-                    <Box sx={{ minWidth: 0 }}>
-                        <Topbar />
+                        <Box sx={{ minWidth: 0 }}>
+                            <Topbar />
 
-                        <Box component="main" className="app-shell__main">
-                            <Routes>
-                                <Route element={<TabsPage />} path="/" />
-                                <Route element={<TabsPage />} path="/comandas" />
-                                <Route element={<TabDetailPage />} path="/comandas/:tabId" />
-                                <Route element={<CashierOverviewPage />} path="/caixa" />
-                                <Route element={<CashierPage />} path="/caixa/nova-venda" />
-                                <Route element={<DashboardPage />} path="/dashboard" />
-                            </Routes>
+                            <Box component="main" className="app-shell__main">
+                                <Routes>
+                                    <Route element={<HomeRoute />} path="/" />
+                                    <Route
+                                        element={
+                                            <CashEnabledRoute>
+                                                <TabsPage />
+                                            </CashEnabledRoute>
+                                        }
+                                        path="/comandas"
+                                    />
+                                    <Route
+                                        element={
+                                            <CashEnabledRoute>
+                                                <TabDetailPage />
+                                            </CashEnabledRoute>
+                                        }
+                                        path="/comandas/:tabId"
+                                    />
+                                    <Route element={<CashierOverviewPage />} path="/caixa" />
+                                    <Route
+                                        element={
+                                            <CashEnabledRoute>
+                                                <CashierPage />
+                                            </CashEnabledRoute>
+                                        }
+                                        path="/caixa/nova-venda"
+                                    />
+                                    <Route element={<DashboardPage />} path="/dashboard" />
+                                </Routes>
+                            </Box>
                         </Box>
                     </Box>
-                </Box>
-            </TabsProvider>
+                </TabsProvider>
+            </CashSessionProvider>
         </ThemeProvider>
     );
 }
