@@ -8,9 +8,11 @@ from .models import (
     ComposicaoProduto,
     Insumo,
     ItemComanda,
+    ItemVendaCaixa,
     MovimentacaoCaixa,
     Produto,
     SessaoCaixa,
+    VendaCaixa,
 )
 
 
@@ -204,3 +206,89 @@ class MovimentacaoCaixaCreateSerializer(serializers.Serializer):
         min_value=Decimal("0.01"),
     )
     descricao = serializers.CharField(max_length=160, required=False, allow_blank=True)
+
+
+class ItemVendaCaixaSerializer(serializers.ModelSerializer):
+    produto_nome = serializers.CharField(source="produto.nome", read_only=True)
+    total = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        source="valor_total",
+        read_only=True,
+    )
+
+    class Meta:
+        model = ItemVendaCaixa
+        fields = [
+            "id",
+            "produto",
+            "produto_nome",
+            "quantidade",
+            "preco_unitario",
+            "total",
+        ]
+
+
+class VendaCaixaSerializer(serializers.ModelSerializer):
+    forma_pagamento_label = serializers.CharField(
+        source="get_forma_pagamento_display",
+        read_only=True,
+    )
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+    itens = ItemVendaCaixaSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = VendaCaixa
+        fields = [
+            "id",
+            "codigo",
+            "forma_pagamento",
+            "forma_pagamento_label",
+            "status",
+            "status_label",
+            "valor_total",
+            "valor_recebido",
+            "troco",
+            "observacao",
+            "criada_em",
+            "itens",
+        ]
+
+
+class ItemVendaCaixaCreateSerializer(serializers.Serializer):
+    produto_id = serializers.IntegerField()
+    quantidade = serializers.IntegerField(min_value=1)
+
+    def validate_produto_id(self, value):
+        if not Produto.objects.filter(id=value, ativo=True).exists():
+            raise serializers.ValidationError("Produto nao encontrado ou inativo.")
+        return value
+
+
+class VendaCaixaCreateSerializer(serializers.Serializer):
+    forma_pagamento = serializers.ChoiceField(choices=VendaCaixa.FormaPagamento.choices)
+    valor_recebido = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+        required=False,
+        allow_null=True,
+    )
+    observacao = serializers.CharField(max_length=180, required=False, allow_blank=True)
+    itens = ItemVendaCaixaCreateSerializer(many=True)
+
+    def validate_itens(self, value):
+        if not value:
+            raise serializers.ValidationError("Adicione pelo menos um item na venda.")
+        return value
+
+    def validate(self, attrs):
+        forma_pagamento = attrs["forma_pagamento"]
+        valor_recebido = attrs.get("valor_recebido")
+
+        if forma_pagamento == VendaCaixa.FormaPagamento.DINHEIRO and valor_recebido is None:
+            raise serializers.ValidationError(
+                {"valor_recebido": ["Informe o valor recebido para pagamentos em dinheiro."]}
+            )
+
+        return attrs

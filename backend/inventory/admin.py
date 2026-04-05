@@ -6,9 +6,11 @@ from .models import (
     ComposicaoProduto,
     Insumo,
     ItemComanda,
+    ItemVendaCaixa,
     MovimentacaoCaixa,
     Produto,
     SessaoCaixa,
+    VendaCaixa,
 )
 
 
@@ -66,3 +68,16 @@ class MovimentacaoCaixaAdmin(admin.ModelAdmin):
     list_display = ("codigo", "sessao_caixa", "tipo", "valor", "criado_em")
     search_fields = ("codigo", "descricao", "sessao_caixa__operador_nome")
     list_filter = ("tipo", "criado_em")
+
+
+class ItemVendaCaixaInline(admin.TabularInline):
+    model = ItemVendaCaixa
+    extra = 0
+
+
+@admin.register(VendaCaixa)
+class VendaCaixaAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "sessao_caixa", "forma_pagamento", "valor_total", "criada_em")
+    search_fields = ("codigo", "observacao", "sessao_caixa__operador_nome")
+    list_filter = ("forma_pagamento", "status", "criada_em")
+    inlines = [ItemVendaCaixaInline]

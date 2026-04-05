@@ -222,3 +222,69 @@ class MovimentacaoCaixa(models.Model):
 
     def __str__(self) -> str:
         return f"{self.codigo} - {self.get_tipo_display()}"
+
+
+class VendaCaixa(models.Model):
+    class FormaPagamento(models.TextChoices):
+        DINHEIRO = "dinheiro", "Dinheiro"
+        PIX = "pix", "Pix"
+        CARTAO = "cartao", "Cartao"
+
+    class Status(models.TextChoices):
+        FINALIZADA = "finalizada", "Finalizada"
+
+    sessao_caixa = models.ForeignKey(
+        SessaoCaixa,
+        on_delete=models.PROTECT,
+        related_name="vendas",
+    )
+    codigo = models.CharField(max_length=24, unique=True)
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.FINALIZADA,
+    )
+    forma_pagamento = models.CharField(
+        max_length=12,
+        choices=FormaPagamento.choices,
+    )
+    valor_total = models.DecimalField(max_digits=10, decimal_places=2)
+    valor_recebido = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    troco = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    observacao = models.CharField(max_length=180, blank=True)
+    criada_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-criada_em", "-id"]
+        verbose_name = "Venda no caixa"
+        verbose_name_plural = "Vendas no caixa"
+
+    def __str__(self) -> str:
+        return self.codigo
+
+
+class ItemVendaCaixa(models.Model):
+    venda = models.ForeignKey(
+        VendaCaixa,
+        on_delete=models.CASCADE,
+        related_name="itens",
+    )
+    produto = models.ForeignKey(
+        Produto,
+        on_delete=models.PROTECT,
+        related_name="itens_venda_caixa",
+    )
+    quantidade = models.PositiveIntegerField(default=1)
+    preco_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "Item de venda no caixa"
+        verbose_name_plural = "Itens de venda no caixa"
+
+    @property
+    def valor_total(self):
+        return self.quantidade * self.preco_unitario
+
+    def __str__(self) -> str:
+        return f"{self.venda.codigo} - {self.produto.nome}"

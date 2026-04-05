@@ -55,6 +55,7 @@ export type CashSession = {
 };
 
 export type CashMovementType = "opening" | "withdrawal" | "supply" | "closing";
+export type CashSalePaymentMethod = "cash" | "pix" | "card";
 
 export type CashMovement = {
     id: number;
@@ -68,9 +69,38 @@ export type CashMovement = {
     timeLabel: string;
 };
 
+export type CashSaleItem = {
+    id: number;
+    productId: number;
+    title: string;
+    quantity: number;
+    unitPrice: string;
+    total: string;
+};
+
+export type CashSale = {
+    id: number;
+    code: string;
+    paymentMethod: CashSalePaymentMethod;
+    paymentMethodLabel: string;
+    status: string;
+    statusLabel: string;
+    total: string;
+    totalNumber: number;
+    receivedAmount: string | null;
+    receivedAmountNumber: number | null;
+    changeAmount: string;
+    changeAmountNumber: number;
+    createdAt: string;
+    timeLabel: string;
+    observation: string;
+    items: CashSaleItem[];
+};
+
 export type CashOverview = {
     session: CashSession;
     movements: CashMovement[];
+    sales: CashSale[];
     summary: {
         openingFund: string;
         openingFundNumber: number;
@@ -145,12 +175,37 @@ type ApiCashMovement = {
 type ApiCashOverview = {
     sessao_atual: ApiCashSession | null;
     movimentacoes: ApiCashMovement[];
+    vendas: ApiCashSale[];
     resumo: {
         fundo_inicial: string;
         saldo_em_caixa: string;
         movimentacoes_count: number;
         vendas_count: number;
     };
+};
+
+type ApiCashSaleItem = {
+    id: number;
+    produto: number;
+    produto_nome: string;
+    quantidade: number;
+    preco_unitario: string;
+    total: string;
+};
+
+type ApiCashSale = {
+    id: number;
+    codigo: string;
+    forma_pagamento: "dinheiro" | "pix" | "cartao";
+    forma_pagamento_label: string;
+    status: string;
+    status_label: string;
+    valor_total: string;
+    valor_recebido: string | null;
+    troco: string;
+    observacao: string;
+    criada_em: string;
+    itens: ApiCashSaleItem[];
 };
 
 function buildUrl(path: string) {
@@ -348,6 +403,61 @@ function mapCashMovement(movement: ApiCashMovement): CashMovement {
     };
 }
 
+function mapCashSalePaymentMethod(method: ApiCashSale["forma_pagamento"]): CashSalePaymentMethod {
+    switch (method) {
+        case "dinheiro":
+            return "cash";
+        case "pix":
+            return "pix";
+        default:
+            return "card";
+    }
+}
+
+function mapCashSaleItem(item: ApiCashSaleItem): CashSaleItem {
+    const unitPriceNumber = parseCurrency(item.preco_unitario);
+    const totalNumber = parseCurrency(item.total);
+
+    return {
+        id: item.id,
+        productId: item.produto,
+        title: item.produto_nome,
+        quantity: item.quantidade,
+        unitPrice: formatCurrency(unitPriceNumber),
+        total: formatCurrency(totalNumber),
+    };
+}
+
+function mapCashSale(sale: ApiCashSale): CashSale {
+    const totalNumber = parseCurrency(sale.valor_total);
+    const receivedAmountNumber =
+        sale.valor_recebido === null ? null : parseCurrency(sale.valor_recebido);
+    const changeAmountNumber = parseCurrency(sale.troco);
+
+    return {
+        id: sale.id,
+        code: sale.codigo,
+        paymentMethod: mapCashSalePaymentMethod(sale.forma_pagamento),
+        paymentMethodLabel: sale.forma_pagamento_label,
+        status: sale.status,
+        statusLabel: sale.status_label,
+        total: formatCurrency(totalNumber),
+        totalNumber,
+        receivedAmount:
+            receivedAmountNumber === null ? null : formatCurrency(receivedAmountNumber),
+        receivedAmountNumber,
+        changeAmount: formatCurrency(changeAmountNumber),
+        changeAmountNumber,
+        createdAt: sale.criada_em,
+        timeLabel: new Date(sale.criada_em).toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+        }),
+        observation: sale.observacao,
+        items: sale.itens.map(mapCashSaleItem),
+    };
+}
+
 function mapCashOverview(overview: ApiCashOverview): CashOverview {
     const openingFundNumber = parseCurrency(overview.resumo.fundo_inicial);
     const balanceNumber = parseCurrency(overview.resumo.saldo_em_caixa);
@@ -355,6 +465,7 @@ function mapCashOverview(overview: ApiCashOverview): CashOverview {
     return {
         session: mapCashSession(overview.sessao_atual),
         movements: overview.movimentacoes.map(mapCashMovement),
+        sales: overview.vendas.map(mapCashSale),
         summary: {
             openingFund: formatCurrency(openingFundNumber),
             openingFundNumber,
@@ -467,4 +578,39 @@ export async function createCashMovement(input: {
             descricao: input.description ?? "",
         }),
     }).then(mapCashMovement);
+}
+
+export async function createCashSale(input: {
+    paymentMethod: CashSalePaymentMethod;
+    receivedAmount?: number | null;
+    observation?: string;
+    items: Array<{
+        productId: number;
+        quantity: number;
+    }>;
+}) {
+    const paymentMethod =
+        input.paymentMethod === "cash"
+            ? "dinheiro"
+            : input.paymentMethod === "pix"
+              ? "pix"
+              : "cartao";
+
+    const response = await request<ApiCashSale>("/caixa/vendas/", {
+        method: "POST",
+        body: JSON.stringify({
+            forma_pagamento: paymentMethod,
+            valor_recebido:
+                input.receivedAmount === undefined || input.receivedAmount === null
+                    ? null
+                    : input.receivedAmount.toFixed(2),
+            observacao: input.observation ?? "",
+            itens: input.items.map((item) => ({
+                produto_id: item.productId,
+                quantidade: item.quantity,
+            })),
+        }),
+    });
+
+    return mapCashSale(response);
 }

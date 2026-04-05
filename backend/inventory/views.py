@@ -13,9 +13,11 @@ from .models import (
     ComposicaoProduto,
     Insumo,
     ItemComanda,
+    ItemVendaCaixa,
     MovimentacaoCaixa,
     Produto,
     SessaoCaixa,
+    VendaCaixa,
 )
 from .serializers import (
     CategoriaProdutoSerializer,
@@ -27,11 +29,14 @@ from .serializers import (
     InsumoSerializer,
     ItemComandaCreateSerializer,
     ItemComandaSerializer,
+    ItemVendaCaixaSerializer,
     MovimentacaoCaixaCreateSerializer,
     MovimentacaoCaixaSerializer,
     ProdutoSerializer,
     SessaoCaixaAberturaSerializer,
     SessaoCaixaSerializer,
+    VendaCaixaCreateSerializer,
+    VendaCaixaSerializer,
 )
 
 
@@ -90,6 +95,28 @@ def get_open_cash_session():
 def generate_movimentacao_codigo(sessao_caixa):
     next_number = sessao_caixa.movimentacoes.count() + 1
     return f"MOV-{next_number:02d}"
+
+
+def generate_venda_caixa_codigo(sessao_caixa):
+    created_at = timezone.localtime(timezone.now())
+    date_label = created_at.strftime("%d%m%y")
+    prefix = f"CX-{date_label}-"
+    last_code = (
+        VendaCaixa.objects.filter(codigo__startswith=prefix)
+        .order_by("-codigo")
+        .values_list("codigo", flat=True)
+        .first()
+    )
+
+    if last_code and last_code.startswith(prefix):
+        try:
+            next_number = int(last_code.replace(prefix, "")) + 1
+        except ValueError:
+            next_number = 1
+    else:
+        next_number = 1
+
+    return f"CX-{date_label}-{next_number:03d}"
 
 
 class CategoriaProdutoViewSet(viewsets.ModelViewSet):
@@ -302,6 +329,7 @@ class CashOverviewView(APIView):
                 {
                     "sessao_atual": None,
                     "movimentacoes": [],
+                    "vendas": [],
                     "resumo": {
                         "fundo_inicial": "0.00",
                         "saldo_em_caixa": "0.00",
@@ -312,6 +340,12 @@ class CashOverviewView(APIView):
             )
 
         movimentacoes = sessao.movimentacoes.all()
+        vendas = sessao.vendas.prefetch_related(
+            Prefetch(
+                "itens",
+                queryset=ItemVendaCaixa.objects.select_related("produto").all(),
+            )
+        )
         total_sangrias = sum(
             item.valor for item in movimentacoes if item.tipo == MovimentacaoCaixa.Tipo.SANGRIA
         )
@@ -320,17 +354,28 @@ class CashOverviewView(APIView):
             for item in movimentacoes
             if item.tipo == MovimentacaoCaixa.Tipo.SUPRIMENTO
         )
-        saldo_em_caixa = sessao.fundo_troco_inicial + total_suprimentos - total_sangrias
+        total_vendas_dinheiro = sum(
+            item.valor_total
+            for item in vendas
+            if item.forma_pagamento == VendaCaixa.FormaPagamento.DINHEIRO
+        )
+        saldo_em_caixa = (
+            sessao.fundo_troco_inicial
+            + total_suprimentos
+            - total_sangrias
+            + total_vendas_dinheiro
+        )
 
         return Response(
             {
                 "sessao_atual": SessaoCaixaSerializer(sessao).data,
                 "movimentacoes": MovimentacaoCaixaSerializer(movimentacoes, many=True).data,
+                "vendas": VendaCaixaSerializer(vendas, many=True).data,
                 "resumo": {
                     "fundo_inicial": sessao.fundo_troco_inicial,
                     "saldo_em_caixa": saldo_em_caixa,
                     "movimentacoes_count": movimentacoes.count(),
-                    "vendas_count": 0,
+                    "vendas_count": vendas.count(),
                 },
             }
         )
@@ -389,6 +434,7 @@ class CashCloseView(APIView):
             {
                 "sessao_atual": None,
                 "movimentacoes": [],
+                "vendas": [],
                 "resumo": {
                     "fundo_inicial": "0.00",
                     "saldo_em_caixa": "0.00",
@@ -423,3 +469,75 @@ class CashMovementCreateView(APIView):
             MovimentacaoCaixaSerializer(movimentacao).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class CashSaleCreateView(APIView):
+    def post(self, request):
+        sessao = get_open_cash_session()
+        if sessao is None:
+            return Response(
+                {"detail": "Abra o caixa antes de registrar vendas."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = VendaCaixaCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        itens_payload = serializer.validated_data["itens"]
+        produtos = {
+            produto.id: produto
+            for produto in Produto.objects.filter(
+                id__in=[item["produto_id"] for item in itens_payload],
+                ativo=True,
+            )
+        }
+
+        valor_total = sum(
+            produtos[item["produto_id"]].preco_venda * item["quantidade"]
+            for item in itens_payload
+        )
+
+        valor_recebido = serializer.validated_data.get("valor_recebido")
+        troco = 0
+
+        if serializer.validated_data["forma_pagamento"] == VendaCaixa.FormaPagamento.DINHEIRO:
+            if valor_recebido < valor_total:
+                return Response(
+                    {"detail": "O valor recebido nao pode ser menor que o total da venda."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            troco = valor_recebido - valor_total
+        else:
+            valor_recebido = None
+
+        with transaction.atomic():
+            venda = VendaCaixa.objects.create(
+                sessao_caixa=sessao,
+                codigo=generate_venda_caixa_codigo(sessao),
+                forma_pagamento=serializer.validated_data["forma_pagamento"],
+                valor_total=valor_total,
+                valor_recebido=valor_recebido,
+                troco=troco,
+                observacao=serializer.validated_data.get("observacao", ""),
+            )
+
+            ItemVendaCaixa.objects.bulk_create(
+                [
+                    ItemVendaCaixa(
+                        venda=venda,
+                        produto=produtos[item["produto_id"]],
+                        quantidade=item["quantidade"],
+                        preco_unitario=produtos[item["produto_id"]].preco_venda,
+                    )
+                    for item in itens_payload
+                ]
+            )
+
+        venda = VendaCaixa.objects.prefetch_related(
+            Prefetch(
+                "itens",
+                queryset=ItemVendaCaixa.objects.select_related("produto").all(),
+            )
+        ).get(pk=venda.pk)
+
+        return Response(VendaCaixaSerializer(venda).data, status=status.HTTP_201_CREATED)

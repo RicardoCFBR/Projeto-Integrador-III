@@ -72,6 +72,7 @@ export function CashierOverviewPage() {
         movements,
         openCash,
         refreshCashSession,
+        sales,
         session,
         summary,
     } = useCashSession();
@@ -81,6 +82,7 @@ export function CashierOverviewPage() {
     const [movementDialogMode, setMovementDialogMode] = useState<MovementDialogMode>(null);
     const [movementValueInput, setMovementValueInput] = useState("");
     const [movementDescription, setMovementDescription] = useState("");
+    const [closeCashDialogOpen, setCloseCashDialogOpen] = useState(false);
 
     const summaryCards = useMemo(
         () => [
@@ -99,7 +101,7 @@ export function CashierOverviewPage() {
             {
                 label: "Saldo em Caixa",
                 value: summary.balance,
-                hint: "Saldo parcial pelas movimentações registradas",
+                hint: "Saldo parcial em dinheiro no caixa",
                 icon: <PointOfSaleRoundedIcon color="secondary" />,
             },
             {
@@ -114,17 +116,34 @@ export function CashierOverviewPage() {
 
     const overviewRows = useMemo(
         () =>
-            movements.map((movement) => ({
-                id: movement.id,
-                registerType: "Movimentação",
-                code: movement.code,
-                description: movement.description || movement.typeLabel,
-                detail: movement.typeLabel,
-                timeLabel: movement.timeLabel,
-                value: movement.value,
-                tone: movementToneColor(movement.type),
-            })),
-        [movements],
+            [
+                ...sales.map((sale) => ({
+                    id: `sale-${sale.id}`,
+                    sortDate: sale.createdAt,
+                    registerType: "Venda",
+                    code: sale.code,
+                    description: "Venda no balcão",
+                    detail: sale.paymentMethodLabel,
+                    timeLabel: sale.timeLabel,
+                    value: sale.total,
+                    tone: "#1c6d25",
+                })),
+                ...movements.map((movement) => ({
+                    id: `movement-${movement.id}`,
+                    sortDate: movement.createdAt,
+                    registerType: "Movimentação",
+                    code: movement.code,
+                    description: movement.description || movement.typeLabel,
+                    detail: movement.typeLabel,
+                    timeLabel: movement.timeLabel,
+                    value: movement.value,
+                    tone: movementToneColor(movement.type),
+                })),
+            ].sort(
+                (left, right) =>
+                    new Date(right.sortDate).getTime() - new Date(left.sortDate).getTime(),
+            ),
+        [movements, sales],
     );
 
     async function handleOpenCash() {
@@ -149,6 +168,7 @@ export function CashierOverviewPage() {
             setActionLoading(true);
             setPageError(null);
             await closeCash();
+            setCloseCashDialogOpen(false);
         } catch (requestError) {
             setPageError(
                 requestError instanceof Error
@@ -355,7 +375,7 @@ export function CashierOverviewPage() {
                             <Button
                                 color="inherit"
                                 disabled={actionLoading}
-                                onClick={() => void handleCloseCash()}
+                                onClick={() => setCloseCashDialogOpen(true)}
                                 startIcon={<LockRoundedIcon />}
                             >
                                 Fechar Sessão
@@ -574,7 +594,7 @@ export function CashierOverviewPage() {
                             <Button
                                 fullWidth
                                 disabled={actionLoading}
-                                onClick={() => void handleCloseCash()}
+                                onClick={() => setCloseCashDialogOpen(true)}
                                 startIcon={<ReceiptLongRoundedIcon />}
                                 sx={{
                                     minHeight: 54,
@@ -622,7 +642,9 @@ export function CashierOverviewPage() {
                         <TextField
                             label="Descrição"
                             placeholder={
-                                movementDialogMode ? `${movementDialogMode === "withdrawal" ? "Sangria" : "Suprimento"} do caixa` : ""
+                                movementDialogMode === "withdrawal"
+                                    ? "Sangria do caixa"
+                                    : "Suprimento do caixa"
                             }
                             value={movementDescription}
                             onChange={(event) => setMovementDescription(event.target.value)}
@@ -639,6 +661,34 @@ export function CashierOverviewPage() {
                         variant="contained"
                     >
                         Confirmar
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                fullWidth
+                maxWidth="xs"
+                onClose={() => setCloseCashDialogOpen(false)}
+                open={closeCashDialogOpen}
+            >
+                <DialogTitle>Fechar Caixa</DialogTitle>
+                <DialogContent>
+                    <Typography>Deseja realmente fechar o caixa?</Typography>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                    <Button
+                        disabled={actionLoading}
+                        onClick={() => setCloseCashDialogOpen(false)}
+                    >
+                        Não
+                    </Button>
+                    <Button
+                        color="error"
+                        disabled={actionLoading}
+                        onClick={() => void handleCloseCash()}
+                        variant="contained"
+                    >
+                        Sim
                     </Button>
                 </DialogActions>
             </Dialog>

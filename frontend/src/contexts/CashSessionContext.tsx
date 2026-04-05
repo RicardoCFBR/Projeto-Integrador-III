@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 import {
     closeCashSession,
+    type CashSale,
     getCashOverview,
     openCashSession,
     type CashMovement,
@@ -12,6 +13,7 @@ import {
 type CashSessionContextValue = {
     session: CashSession;
     movements: CashMovement[];
+    sales: CashSale[];
     summary: CashOverview["summary"];
     isCashOpen: boolean;
     loading: boolean;
@@ -45,6 +47,7 @@ const CashSessionContext = createContext<CashSessionContextValue | undefined>(un
 export function CashSessionProvider({ children }: { children: ReactNode }) {
     const [session, setSession] = useState<CashSession>(closedSession);
     const [movements, setMovements] = useState<CashMovement[]>([]);
+    const [sales, setSales] = useState<CashSale[]>([]);
     const [summary, setSummary] = useState(defaultSummary);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -52,6 +55,7 @@ export function CashSessionProvider({ children }: { children: ReactNode }) {
     function applyOverview(overview: CashOverview) {
         setSession(overview.session);
         setMovements(overview.movements);
+        setSales(overview.sales);
         setSummary(overview.summary);
     }
 
@@ -70,6 +74,7 @@ export function CashSessionProvider({ children }: { children: ReactNode }) {
             applyOverview({
                 session: closedSession,
                 movements: [],
+                sales: [],
                 summary: defaultSummary,
             });
         } finally {
@@ -98,6 +103,7 @@ export function CashSessionProvider({ children }: { children: ReactNode }) {
             value={{
                 session,
                 movements,
+                sales,
                 summary,
                 isCashOpen: session.status === "open",
                 loading,

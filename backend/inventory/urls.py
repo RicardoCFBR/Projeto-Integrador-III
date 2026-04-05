@@ -6,6 +6,7 @@ from .views import (
     CashMovementCreateView,
     CashOpenView,
     CashOverviewView,
+    CashSaleCreateView,
     CategoriaProdutoViewSet,
     ComandaViewSet,
     ComposicaoProdutoViewSet,
@@ -28,6 +29,7 @@ urlpatterns = [
     path("caixa/abrir/", CashOpenView.as_view(), name="cash-open"),
     path("caixa/fechar/", CashCloseView.as_view(), name="cash-close"),
     path("caixa/movimentacoes/", CashMovementCreateView.as_view(), name="cash-movements"),
+    path("caixa/vendas/", CashSaleCreateView.as_view(), name="cash-sales"),
     path("dashboard/", DashboardSummaryView.as_view(), name="dashboard-summary"),
     path("", include(router.urls)),
 ]
