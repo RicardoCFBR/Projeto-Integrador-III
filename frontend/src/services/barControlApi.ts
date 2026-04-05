@@ -52,6 +52,16 @@ export type CashSession = {
     openedAt: string | null;
     closedAt: string | null;
     openedBy: string;
+    closingCashCounted: string | null;
+    closingPixCounted: string | null;
+    closingCardCounted: string | null;
+    expectedCashAtClose: string | null;
+    expectedPixAtClose: string | null;
+    expectedCardAtClose: string | null;
+    cashDifference: string | null;
+    pixDifference: string | null;
+    cardDifference: string | null;
+    totalDifference: string | null;
 };
 
 export type CashMovementType = "opening" | "withdrawal" | "supply" | "closing";
@@ -108,6 +118,12 @@ export type CashOverview = {
         balanceNumber: number;
         movementsCount: number;
         salesCount: number;
+        expectedCash: string;
+        expectedCashNumber: number;
+        expectedPix: string;
+        expectedPixNumber: number;
+        expectedCard: string;
+        expectedCardNumber: number;
     };
 };
 
@@ -160,6 +176,16 @@ type ApiCashSession = {
     fundo_troco_inicial: string;
     aberto_em: string;
     fechado_em: string | null;
+    fechamento_dinheiro_informado: string | null;
+    fechamento_pix_informado: string | null;
+    fechamento_cartao_informado: string | null;
+    valor_esperado_dinheiro: string | null;
+    valor_esperado_pix: string | null;
+    valor_esperado_cartao: string | null;
+    diferenca_dinheiro: string | null;
+    diferenca_pix: string | null;
+    diferenca_cartao: string | null;
+    diferenca_total: string | null;
 };
 
 type ApiCashMovement = {
@@ -181,6 +207,9 @@ type ApiCashOverview = {
         saldo_em_caixa: string;
         movimentacoes_count: number;
         vendas_count: number;
+        esperado_dinheiro: string;
+        esperado_pix: string;
+        esperado_cartao: string;
     };
 };
 
@@ -236,6 +265,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
                 errorMessage = errorBody.fundo_troco_inicial[0];
             } else if (typeof errorBody.valor?.[0] === "string") {
                 errorMessage = errorBody.valor[0];
+            } else if (typeof errorBody.dinheiro_contado?.[0] === "string") {
+                errorMessage = errorBody.dinheiro_contado[0];
+            } else if (typeof errorBody.pix_conferido?.[0] === "string") {
+                errorMessage = errorBody.pix_conferido[0];
+            } else if (typeof errorBody.cartao_conferido?.[0] === "string") {
+                errorMessage = errorBody.cartao_conferido[0];
             }
         } catch {
             errorMessage = `Erro HTTP ${response.status}`;
@@ -365,10 +400,20 @@ function mapCashSession(session: ApiCashSession | null): CashSession {
             status: "closed",
             openingFund: formatCurrency(0),
             openingFundNumber: 0,
-            openedAt: null,
-            closedAt: null,
-            openedBy: "Ricardo Silva",
-        };
+        openedAt: null,
+        closedAt: null,
+        openedBy: "Ricardo Silva",
+        closingCashCounted: null,
+        closingPixCounted: null,
+        closingCardCounted: null,
+        expectedCashAtClose: null,
+        expectedPixAtClose: null,
+        expectedCardAtClose: null,
+        cashDifference: null,
+        pixDifference: null,
+        cardDifference: null,
+        totalDifference: null,
+    };
     }
 
     const openingFundNumber = parseCurrency(session.fundo_troco_inicial);
@@ -381,6 +426,46 @@ function mapCashSession(session: ApiCashSession | null): CashSession {
         openedAt: session.aberto_em,
         closedAt: session.fechado_em,
         openedBy: session.operador_nome,
+        closingCashCounted:
+            session.fechamento_dinheiro_informado === null
+                ? null
+                : formatCurrency(parseCurrency(session.fechamento_dinheiro_informado)),
+        closingPixCounted:
+            session.fechamento_pix_informado === null
+                ? null
+                : formatCurrency(parseCurrency(session.fechamento_pix_informado)),
+        closingCardCounted:
+            session.fechamento_cartao_informado === null
+                ? null
+                : formatCurrency(parseCurrency(session.fechamento_cartao_informado)),
+        expectedCashAtClose:
+            session.valor_esperado_dinheiro === null
+                ? null
+                : formatCurrency(parseCurrency(session.valor_esperado_dinheiro)),
+        expectedPixAtClose:
+            session.valor_esperado_pix === null
+                ? null
+                : formatCurrency(parseCurrency(session.valor_esperado_pix)),
+        expectedCardAtClose:
+            session.valor_esperado_cartao === null
+                ? null
+                : formatCurrency(parseCurrency(session.valor_esperado_cartao)),
+        cashDifference:
+            session.diferenca_dinheiro === null
+                ? null
+                : formatCurrency(parseCurrency(session.diferenca_dinheiro)),
+        pixDifference:
+            session.diferenca_pix === null
+                ? null
+                : formatCurrency(parseCurrency(session.diferenca_pix)),
+        cardDifference:
+            session.diferenca_cartao === null
+                ? null
+                : formatCurrency(parseCurrency(session.diferenca_cartao)),
+        totalDifference:
+            session.diferenca_total === null
+                ? null
+                : formatCurrency(parseCurrency(session.diferenca_total)),
     };
 }
 
@@ -461,6 +546,9 @@ function mapCashSale(sale: ApiCashSale): CashSale {
 function mapCashOverview(overview: ApiCashOverview): CashOverview {
     const openingFundNumber = parseCurrency(overview.resumo.fundo_inicial);
     const balanceNumber = parseCurrency(overview.resumo.saldo_em_caixa);
+    const expectedCashNumber = parseCurrency(overview.resumo.esperado_dinheiro);
+    const expectedPixNumber = parseCurrency(overview.resumo.esperado_pix);
+    const expectedCardNumber = parseCurrency(overview.resumo.esperado_cartao);
 
     return {
         session: mapCashSession(overview.sessao_atual),
@@ -473,6 +561,12 @@ function mapCashOverview(overview: ApiCashOverview): CashOverview {
             balanceNumber,
             movementsCount: overview.resumo.movimentacoes_count,
             salesCount: overview.resumo.vendas_count,
+            expectedCash: formatCurrency(expectedCashNumber),
+            expectedCashNumber,
+            expectedPix: formatCurrency(expectedPixNumber),
+            expectedPixNumber,
+            expectedCard: formatCurrency(expectedCardNumber),
+            expectedCardNumber,
         },
     };
 }
@@ -557,9 +651,18 @@ export async function openCashSession(openingFund: number, operatorName?: string
     return mapCashOverview(response);
 }
 
-export async function closeCashSession() {
+export async function closeCashSession(input: {
+    cashCounted: number;
+    pixCounted: number;
+    cardCounted: number;
+}) {
     const response = await request<ApiCashOverview>("/caixa/fechar/", {
         method: "POST",
+        body: JSON.stringify({
+            dinheiro_contado: input.cashCounted.toFixed(2),
+            pix_conferido: input.pixCounted.toFixed(2),
+            cartao_conferido: input.cardCounted.toFixed(2),
+        }),
     });
     return mapCashOverview(response);
 }

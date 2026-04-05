@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Sum
@@ -36,6 +37,7 @@ from .serializers import (
     MovimentacaoCaixaSerializer,
     ProdutoSerializer,
     SessaoCaixaAberturaSerializer,
+    SessaoCaixaFechamentoSerializer,
     SessaoCaixaSerializer,
     VendaCaixaCreateSerializer,
     VendaCaixaSerializer,
@@ -119,6 +121,72 @@ def generate_venda_caixa_codigo(sessao_caixa):
         next_number = 1
 
     return f"CX-{date_label}-{next_number:03d}"
+
+
+def calculate_cash_overview_summary(sessao):
+    movimentacoes = list(sessao.movimentacoes.all())
+    vendas = list(
+        sessao.vendas.prefetch_related(
+            Prefetch(
+                "itens",
+                queryset=ItemVendaCaixa.objects.select_related("produto").all(),
+            )
+        )
+    )
+
+    total_sangrias = sum(
+        (item.valor for item in movimentacoes if item.tipo == MovimentacaoCaixa.Tipo.SANGRIA),
+        Decimal("0.00"),
+    )
+    total_suprimentos = sum(
+        (item.valor for item in movimentacoes if item.tipo == MovimentacaoCaixa.Tipo.SUPRIMENTO),
+        Decimal("0.00"),
+    )
+    total_vendas_dinheiro = sum(
+        (
+            item.valor_total
+            for item in vendas
+            if item.forma_pagamento == VendaCaixa.FormaPagamento.DINHEIRO
+        ),
+        Decimal("0.00"),
+    )
+    total_vendas_pix = sum(
+        (
+            item.valor_total
+            for item in vendas
+            if item.forma_pagamento == VendaCaixa.FormaPagamento.PIX
+        ),
+        Decimal("0.00"),
+    )
+    total_vendas_cartao = sum(
+        (
+            item.valor_total
+            for item in vendas
+            if item.forma_pagamento == VendaCaixa.FormaPagamento.CARTAO
+        ),
+        Decimal("0.00"),
+    )
+
+    saldo_em_caixa = (
+        sessao.fundo_troco_inicial
+        + total_suprimentos
+        - total_sangrias
+        + total_vendas_dinheiro
+    )
+
+    return {
+        "movimentacoes": movimentacoes,
+        "vendas": vendas,
+        "resumo": {
+            "fundo_inicial": sessao.fundo_troco_inicial,
+            "saldo_em_caixa": saldo_em_caixa,
+            "movimentacoes_count": len(movimentacoes),
+            "vendas_count": len(vendas),
+            "esperado_dinheiro": saldo_em_caixa,
+            "esperado_pix": total_vendas_pix,
+            "esperado_cartao": total_vendas_cartao,
+        },
+    }
 
 
 def cash_sale_detail_queryset():
@@ -346,48 +414,23 @@ class CashOverviewView(APIView):
                         "saldo_em_caixa": "0.00",
                         "movimentacoes_count": 0,
                         "vendas_count": 0,
+                        "esperado_dinheiro": "0.00",
+                        "esperado_pix": "0.00",
+                        "esperado_cartao": "0.00",
                     },
                 }
             )
 
-        movimentacoes = sessao.movimentacoes.all()
-        vendas = sessao.vendas.prefetch_related(
-            Prefetch(
-                "itens",
-                queryset=ItemVendaCaixa.objects.select_related("produto").all(),
-            )
-        )
-        total_sangrias = sum(
-            item.valor for item in movimentacoes if item.tipo == MovimentacaoCaixa.Tipo.SANGRIA
-        )
-        total_suprimentos = sum(
-            item.valor
-            for item in movimentacoes
-            if item.tipo == MovimentacaoCaixa.Tipo.SUPRIMENTO
-        )
-        total_vendas_dinheiro = sum(
-            item.valor_total
-            for item in vendas
-            if item.forma_pagamento == VendaCaixa.FormaPagamento.DINHEIRO
-        )
-        saldo_em_caixa = (
-            sessao.fundo_troco_inicial
-            + total_suprimentos
-            - total_sangrias
-            + total_vendas_dinheiro
-        )
+        overview = calculate_cash_overview_summary(sessao)
 
         return Response(
             {
                 "sessao_atual": SessaoCaixaSerializer(sessao).data,
-                "movimentacoes": MovimentacaoCaixaSerializer(movimentacoes, many=True).data,
-                "vendas": VendaCaixaSerializer(vendas, many=True).data,
-                "resumo": {
-                    "fundo_inicial": sessao.fundo_troco_inicial,
-                    "saldo_em_caixa": saldo_em_caixa,
-                    "movimentacoes_count": movimentacoes.count(),
-                    "vendas_count": vendas.count(),
-                },
+                "movimentacoes": MovimentacaoCaixaSerializer(
+                    overview["movimentacoes"], many=True
+                ).data,
+                "vendas": VendaCaixaSerializer(overview["vendas"], many=True).data,
+                "resumo": overview["resumo"],
             }
         )
 
@@ -429,6 +472,20 @@ class CashCloseView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        serializer = SessaoCaixaFechamentoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        overview = calculate_cash_overview_summary(sessao)
+        esperado_dinheiro = overview["resumo"]["esperado_dinheiro"]
+        esperado_pix = overview["resumo"]["esperado_pix"]
+        esperado_cartao = overview["resumo"]["esperado_cartao"]
+        dinheiro_contado = serializer.validated_data["dinheiro_contado"]
+        pix_conferido = serializer.validated_data["pix_conferido"]
+        cartao_conferido = serializer.validated_data["cartao_conferido"]
+        diferenca_dinheiro = dinheiro_contado - esperado_dinheiro
+        diferenca_pix = pix_conferido - esperado_pix
+        diferenca_cartao = cartao_conferido - esperado_cartao
+        diferenca_total = diferenca_dinheiro + diferenca_pix + diferenca_cartao
+
         with transaction.atomic():
             MovimentacaoCaixa.objects.create(
                 sessao_caixa=sessao,
@@ -439,7 +496,32 @@ class CashCloseView(APIView):
             )
             sessao.status = SessaoCaixa.Status.FECHADO
             sessao.fechado_em = timezone.now()
-            sessao.save(update_fields=["status", "fechado_em"])
+            sessao.fechamento_dinheiro_informado = dinheiro_contado
+            sessao.fechamento_pix_informado = pix_conferido
+            sessao.fechamento_cartao_informado = cartao_conferido
+            sessao.valor_esperado_dinheiro = esperado_dinheiro
+            sessao.valor_esperado_pix = esperado_pix
+            sessao.valor_esperado_cartao = esperado_cartao
+            sessao.diferenca_dinheiro = diferenca_dinheiro
+            sessao.diferenca_pix = diferenca_pix
+            sessao.diferenca_cartao = diferenca_cartao
+            sessao.diferenca_total = diferenca_total
+            sessao.save(
+                update_fields=[
+                    "status",
+                    "fechado_em",
+                    "fechamento_dinheiro_informado",
+                    "fechamento_pix_informado",
+                    "fechamento_cartao_informado",
+                    "valor_esperado_dinheiro",
+                    "valor_esperado_pix",
+                    "valor_esperado_cartao",
+                    "diferenca_dinheiro",
+                    "diferenca_pix",
+                    "diferenca_cartao",
+                    "diferenca_total",
+                ]
+            )
 
         return Response(
             {
@@ -451,6 +533,9 @@ class CashCloseView(APIView):
                     "saldo_em_caixa": "0.00",
                     "movimentacoes_count": 0,
                     "vendas_count": 0,
+                    "esperado_dinheiro": "0.00",
+                    "esperado_pix": "0.00",
+                    "esperado_cartao": "0.00",
                 },
             }
         )

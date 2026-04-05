@@ -3,11 +3,11 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import {
     closeCashSession,
     type CashSale,
-    getCashOverview,
-    openCashSession,
     type CashMovement,
     type CashOverview,
     type CashSession,
+    getCashOverview,
+    openCashSession,
 } from "../services/barControlApi";
 
 type CashSessionContextValue = {
@@ -19,7 +19,11 @@ type CashSessionContextValue = {
     loading: boolean;
     error: string | null;
     openCash: (openingFund: number) => Promise<void>;
-    closeCash: () => Promise<void>;
+    closeCash: (input: {
+        cashCounted: number;
+        pixCounted: number;
+        cardCounted: number;
+    }) => Promise<void>;
     refreshCashSession: () => Promise<void>;
 };
 
@@ -31,6 +35,16 @@ const closedSession: CashSession = {
     openedAt: null,
     closedAt: null,
     openedBy: "Ricardo Silva",
+    closingCashCounted: null,
+    closingPixCounted: null,
+    closingCardCounted: null,
+    expectedCashAtClose: null,
+    expectedPixAtClose: null,
+    expectedCardAtClose: null,
+    cashDifference: null,
+    pixDifference: null,
+    cardDifference: null,
+    totalDifference: null,
 };
 
 const defaultSummary: CashOverview["summary"] = {
@@ -40,6 +54,12 @@ const defaultSummary: CashOverview["summary"] = {
     balanceNumber: 0,
     movementsCount: 0,
     salesCount: 0,
+    expectedCash: "R$ 0,00",
+    expectedCashNumber: 0,
+    expectedPix: "R$ 0,00",
+    expectedPixNumber: 0,
+    expectedCard: "R$ 0,00",
+    expectedCardNumber: 0,
 };
 
 const CashSessionContext = createContext<CashSessionContextValue | undefined>(undefined);
@@ -88,9 +108,13 @@ export function CashSessionProvider({ children }: { children: ReactNode }) {
         applyOverview(overview);
     }
 
-    async function closeCash() {
+    async function closeCash(input: {
+        cashCounted: number;
+        pixCounted: number;
+        cardCounted: number;
+    }) {
         setError(null);
-        const overview = await closeCashSession();
+        const overview = await closeCashSession(input);
         applyOverview(overview);
     }
 

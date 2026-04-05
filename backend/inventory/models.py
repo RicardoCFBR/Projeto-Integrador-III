@@ -171,6 +171,66 @@ class SessaoCaixa(models.Model):
     fundo_troco_inicial = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     aberto_em = models.DateTimeField(auto_now_add=True)
     fechado_em = models.DateTimeField(blank=True, null=True)
+    fechamento_dinheiro_informado = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    fechamento_pix_informado = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    fechamento_cartao_informado = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    valor_esperado_dinheiro = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    valor_esperado_pix = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    valor_esperado_cartao = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    diferenca_dinheiro = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    diferenca_pix = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    diferenca_cartao = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    diferenca_total = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         ordering = ["-aberto_em"]

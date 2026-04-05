@@ -161,6 +161,16 @@ class SessaoCaixaSerializer(serializers.ModelSerializer):
             "fundo_troco_inicial",
             "aberto_em",
             "fechado_em",
+            "fechamento_dinheiro_informado",
+            "fechamento_pix_informado",
+            "fechamento_cartao_informado",
+            "valor_esperado_dinheiro",
+            "valor_esperado_pix",
+            "valor_esperado_cartao",
+            "diferenca_dinheiro",
+            "diferenca_pix",
+            "diferenca_cartao",
+            "diferenca_total",
         ]
 
 
@@ -206,6 +216,24 @@ class MovimentacaoCaixaCreateSerializer(serializers.Serializer):
         min_value=Decimal("0.01"),
     )
     descricao = serializers.CharField(max_length=160, required=False, allow_blank=True)
+
+
+class SessaoCaixaFechamentoSerializer(serializers.Serializer):
+    dinheiro_contado = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+    )
+    pix_conferido = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+    )
+    cartao_conferido = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+    )
 
 
 class ItemVendaCaixaSerializer(serializers.ModelSerializer):
