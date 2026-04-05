@@ -29,6 +29,12 @@ const cashChildren = [
     { label: "Venda no Caixa", to: "/caixa/nova-venda", icon: <PointOfSaleRoundedIcon /> },
 ];
 
+const historyItem = {
+    label: "Histórico de Vendas",
+    to: "/historico-vendas",
+    icon: <ReceiptLongRoundedIcon />,
+};
+
 const bottomItems = [
     { label: "Estoque", icon: <Inventory2RoundedIcon /> },
     { label: "Financeiro", icon: <PaymentsRoundedIcon /> },
@@ -192,9 +198,7 @@ export function Sidebar() {
                         >
                             <ExpandMoreRoundedIcon
                                 sx={{
-                                    transform: cashGroupExpanded
-                                        ? "rotate(180deg)"
-                                        : "rotate(0deg)",
+                                    transform: cashGroupExpanded ? "rotate(180deg)" : "rotate(0deg)",
                                     transition: "transform 160ms ease",
                                 }}
                             />
@@ -265,6 +269,39 @@ export function Sidebar() {
                         </Stack>
                     </Box>
                 </Box>
+
+                <ListItemButton
+                    component={NavLink}
+                    selected={location.pathname.startsWith(historyItem.to)}
+                    sx={{
+                        minHeight: 48,
+                        px: 1.75,
+                        borderRadius: "14px",
+                        color: location.pathname.startsWith(historyItem.to) ? "#1b58d8" : "#3e4d4f",
+                        "& .MuiListItemIcon-root": {
+                            color: "inherit",
+                            minWidth: 36,
+                        },
+                        "& .MuiListItemText-primary": {
+                            fontWeight: location.pathname.startsWith(historyItem.to) ? 700 : 500,
+                        },
+                        "&.Mui-selected": {
+                            bgcolor: "rgba(255,255,255,0.92)",
+                            boxShadow: "0 10px 22px rgba(45, 52, 51, 0.04)",
+                        },
+                        "&.Mui-selected:hover": {
+                            bgcolor: "rgba(255,255,255,0.92)",
+                        },
+                        "&:hover": {
+                            bgcolor: "rgba(255,255,255,0.75)",
+                            color: "primary.main",
+                        },
+                    }}
+                    to={historyItem.to}
+                >
+                    <ListItemIcon>{historyItem.icon}</ListItemIcon>
+                    <ListItemText primary={historyItem.label} />
+                </ListItemButton>
 
                 {bottomItems.map((item) => (
                     <Paper

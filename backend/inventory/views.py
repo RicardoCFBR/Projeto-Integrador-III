@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import transaction
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Sum
 from django.db.models.functions import Coalesce, TruncDate
@@ -117,6 +119,15 @@ def generate_venda_caixa_codigo(sessao_caixa):
         next_number = 1
 
     return f"CX-{date_label}-{next_number:03d}"
+
+
+def cash_sale_detail_queryset():
+    return VendaCaixa.objects.select_related("sessao_caixa").prefetch_related(
+        Prefetch(
+            "itens",
+            queryset=ItemVendaCaixa.objects.select_related("produto").all(),
+        )
+    )
 
 
 class CategoriaProdutoViewSet(viewsets.ModelViewSet):
@@ -541,3 +552,49 @@ class CashSaleCreateView(APIView):
         ).get(pk=venda.pk)
 
         return Response(VendaCaixaSerializer(venda).data, status=status.HTTP_201_CREATED)
+
+
+class CashSaleHistoryView(APIView):
+    def get(self, request):
+        queryset = cash_sale_detail_queryset()
+
+        periodo = request.query_params.get("periodo")
+        codigo = request.query_params.get("codigo", "").strip()
+        forma_pagamento = request.query_params.get("forma_pagamento", "").strip()
+        data_inicial = request.query_params.get("data_inicial")
+        data_final = request.query_params.get("data_final")
+
+        today = timezone.localdate()
+
+        if periodo == "hoje":
+            queryset = queryset.filter(criada_em__date=today)
+        elif periodo == "ontem":
+            queryset = queryset.filter(criada_em__date=today - timedelta(days=1))
+        elif periodo == "ultimos_7_dias":
+            queryset = queryset.filter(criada_em__date__gte=today - timedelta(days=6))
+
+        if data_inicial:
+            queryset = queryset.filter(criada_em__date__gte=data_inicial)
+
+        if data_final:
+            queryset = queryset.filter(criada_em__date__lte=data_final)
+
+        if codigo:
+            queryset = queryset.filter(codigo__icontains=codigo)
+
+        if forma_pagamento in {
+            VendaCaixa.FormaPagamento.DINHEIRO,
+            VendaCaixa.FormaPagamento.PIX,
+            VendaCaixa.FormaPagamento.CARTAO,
+        }:
+            queryset = queryset.filter(forma_pagamento=forma_pagamento)
+
+        serializer = VendaCaixaSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class CashSaleDetailView(APIView):
+    def get(self, request, pk):
+        venda = cash_sale_detail_queryset().get(pk=pk)
+        serializer = VendaCaixaSerializer(venda)
+        return Response(serializer.data)

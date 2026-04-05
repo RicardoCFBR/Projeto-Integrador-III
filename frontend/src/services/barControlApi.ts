@@ -614,3 +614,51 @@ export async function createCashSale(input: {
 
     return mapCashSale(response);
 }
+
+export async function listCashSalesHistory(input?: {
+    period?: "hoje" | "ontem" | "ultimos_7_dias" | "personalizado";
+    code?: string;
+    paymentMethod?: CashSalePaymentMethod | "all";
+    startDate?: string;
+    endDate?: string;
+}) {
+    const params = new URLSearchParams();
+
+    if (input?.period && input.period !== "personalizado") {
+        params.set("periodo", input.period);
+    }
+
+    if (input?.code) {
+        params.set("codigo", input.code);
+    }
+
+    if (input?.paymentMethod && input.paymentMethod !== "all") {
+        const paymentMethod =
+            input.paymentMethod === "cash"
+                ? "dinheiro"
+                : input.paymentMethod === "pix"
+                  ? "pix"
+                  : "cartao";
+        params.set("forma_pagamento", paymentMethod);
+    }
+
+    if (input?.startDate) {
+        params.set("data_inicial", input.startDate);
+    }
+
+    if (input?.endDate) {
+        params.set("data_final", input.endDate);
+    }
+
+    const queryString = params.toString();
+    const response = await request<ApiCashSale[]>(
+        `/caixa/vendas/historico/${queryString ? `?${queryString}` : ""}`,
+    );
+
+    return response.map(mapCashSale);
+}
+
+export async function getCashSaleDetail(saleId: number) {
+    const response = await request<ApiCashSale>(`/caixa/vendas/${saleId}/`);
+    return mapCashSale(response);
+}
