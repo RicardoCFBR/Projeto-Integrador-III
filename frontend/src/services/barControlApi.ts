@@ -167,6 +167,33 @@ export type FinanceOperation = {
     timeLabel: string;
 };
 
+export type FinanceClosingStatus = "conferido" | "sobra" | "falta";
+
+export type FinanceClosingSession = {
+    id: number;
+    operatorName: string;
+    openedAt: string;
+    closedAt: string;
+    openingFund: string;
+    openingFundNumber: number;
+    expectedTotal: string;
+    expectedTotalNumber: number;
+    checkedTotal: string;
+    checkedTotalNumber: number;
+    totalDifference: string;
+    totalDifferenceNumber: number;
+    cashDifference: string;
+    cashDifferenceNumber: number;
+    pixDifference: string;
+    pixDifferenceNumber: number;
+    cardDifference: string;
+    cardDifferenceNumber: number;
+    status: FinanceClosingStatus;
+    statusLabel: string;
+    openedTimeLabel: string;
+    closedTimeLabel: string;
+};
+
 type ApiTabStatus = "aberta" | "encerrada";
 
 type ApiTabSummary = {
@@ -306,6 +333,26 @@ type ApiFinanceOperation = {
 
 type ApiFinanceOperations = {
     operacoes: ApiFinanceOperation[];
+};
+
+type ApiFinanceClosingSession = {
+    id: number;
+    operador_nome: string;
+    aberto_em: string;
+    fechado_em: string;
+    fundo_troco_inicial: string;
+    esperado_total: string;
+    conferido_total: string;
+    diferenca_total: string;
+    diferenca_dinheiro: string;
+    diferenca_pix: string;
+    diferenca_cartao: string;
+    status_fechamento: FinanceClosingStatus;
+    status_fechamento_label: string;
+};
+
+type ApiFinanceClosingMetrics = {
+    fechamentos: ApiFinanceClosingSession[];
 };
 
 function buildUrl(path: string) {
@@ -701,6 +748,49 @@ function mapFinanceOperation(operation: ApiFinanceOperation): FinanceOperation {
     };
 }
 
+function mapFinanceClosingSession(session: ApiFinanceClosingSession): FinanceClosingSession {
+    const openingFundNumber = parseCurrency(session.fundo_troco_inicial);
+    const expectedTotalNumber = parseCurrency(session.esperado_total);
+    const checkedTotalNumber = parseCurrency(session.conferido_total);
+    const totalDifferenceNumber = parseCurrency(session.diferenca_total);
+    const cashDifferenceNumber = parseCurrency(session.diferenca_dinheiro);
+    const pixDifferenceNumber = parseCurrency(session.diferenca_pix);
+    const cardDifferenceNumber = parseCurrency(session.diferenca_cartao);
+    const openedAtDate = new Date(session.aberto_em);
+    const closedAtDate = new Date(session.fechado_em);
+
+    return {
+        id: session.id,
+        operatorName: session.operador_nome,
+        openedAt: session.aberto_em,
+        closedAt: session.fechado_em,
+        openingFund: formatCurrency(openingFundNumber),
+        openingFundNumber,
+        expectedTotal: formatCurrency(expectedTotalNumber),
+        expectedTotalNumber,
+        checkedTotal: formatCurrency(checkedTotalNumber),
+        checkedTotalNumber,
+        totalDifference: formatCurrency(totalDifferenceNumber),
+        totalDifferenceNumber,
+        cashDifference: formatCurrency(cashDifferenceNumber),
+        cashDifferenceNumber,
+        pixDifference: formatCurrency(pixDifferenceNumber),
+        pixDifferenceNumber,
+        cardDifference: formatCurrency(cardDifferenceNumber),
+        cardDifferenceNumber,
+        status: session.status_fechamento,
+        statusLabel: session.status_fechamento_label,
+        openedTimeLabel: openedAtDate.toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+        }),
+        closedTimeLabel: closedAtDate.toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+        }),
+    };
+}
+
 export async function listTabsMural() {
     const response = await request<ApiTabSummary[]>("/comandas/mural/");
     return response.map(mapTabSummary);
@@ -976,4 +1066,31 @@ export async function getFinanceOperations(input?: {
     );
 
     return response.operacoes.map(mapFinanceOperation);
+}
+
+export async function getFinanceClosingMetrics(input?: {
+    period?: "hoje" | "ontem" | "ultimos_7_dias" | "personalizado";
+    startDate?: string;
+    endDate?: string;
+}) {
+    const params = new URLSearchParams();
+
+    if (input?.period && input.period !== "personalizado") {
+        params.set("periodo", input.period);
+    }
+
+    if (input?.startDate) {
+        params.set("data_inicial", input.startDate);
+    }
+
+    if (input?.endDate) {
+        params.set("data_final", input.endDate);
+    }
+
+    const queryString = params.toString();
+    const response = await request<ApiFinanceClosingMetrics>(
+        `/financeiro/fechamentos/${queryString ? `?${queryString}` : ""}`,
+    );
+
+    return response.fechamentos.map(mapFinanceClosingSession);
 }

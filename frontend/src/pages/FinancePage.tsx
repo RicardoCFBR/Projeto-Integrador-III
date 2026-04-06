@@ -25,8 +25,10 @@ import {
 } from "@mui/material";
 
 import {
+    getFinanceClosingMetrics,
     getFinanceOperations,
     getFinanceSummary,
+    type FinanceClosingSession,
     type FinanceOperation,
     type FinanceSummary,
 } from "../services/barControlApi";
@@ -68,12 +70,22 @@ const emptySummary: FinanceSummary = {
     totalDifferencesNumber: 0,
 };
 
+const closingStatusColorMap: Record<
+    FinanceClosingSession["status"],
+    "success" | "warning" | "error"
+> = {
+    conferido: "success",
+    sobra: "warning",
+    falta: "error",
+};
+
 export function FinancePage() {
     const [period, setPeriod] = useState<FinancePeriod>("hoje");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [summary, setSummary] = useState<FinanceSummary>(emptySummary);
     const [operations, setOperations] = useState<FinanceOperation[]>([]);
+    const [closingSessions, setClosingSessions] = useState<FinanceClosingSession[]>([]);
     const [operationView, setOperationView] = useState<FinanceOperationView>("all");
     const [loading, setLoading] = useState(true);
     const [pageError, setPageError] = useState<string | null>(null);
@@ -148,19 +160,22 @@ export function FinancePage() {
         try {
             setLoading(true);
             setPageError(null);
+
             const filterInput = {
                 period,
                 startDate: period === "personalizado" ? startDate : undefined,
                 endDate: period === "personalizado" ? endDate : undefined,
             } as const;
 
-            const [summaryResponse, operationsResponse] = await Promise.all([
+            const [summaryResponse, operationsResponse, closingsResponse] = await Promise.all([
                 getFinanceSummary(filterInput),
                 getFinanceOperations(filterInput),
+                getFinanceClosingMetrics(filterInput),
             ]);
 
             setSummary(summaryResponse);
             setOperations(operationsResponse);
+            setClosingSessions(closingsResponse);
         } catch (requestError) {
             setPageError(
                 requestError instanceof Error
@@ -357,7 +372,8 @@ export function FinancePage() {
                                                     colSpan={7}
                                                     sx={{ py: 4, color: "text.secondary" }}
                                                 >
-                                                    Nenhum registro encontrado para o período selecionado.
+                                                    Nenhum registro encontrado para o período
+                                                    selecionado.
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
@@ -373,6 +389,95 @@ export function FinancePage() {
                                                     <TableCell>{operation.timeLabel}</TableCell>
                                                     <TableCell align="right" sx={{ fontWeight: 700 }}>
                                                         {operation.value}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Stack>
+                    </Paper>
+
+                    <Paper
+                        elevation={0}
+                        sx={{
+                            p: { xs: 2.5, md: 3 },
+                            borderRadius: "12px",
+                            bgcolor: "background.paper",
+                            boxShadow: "0 12px 28px rgba(45, 52, 51, 0.05)",
+                        }}
+                    >
+                        <Stack spacing={2}>
+                            <Box>
+                                <Typography variant="h5">Últimos Fechamentos de Caixa</Typography>
+                                <Typography color="text.secondary">
+                                    Conferência das sessões fechadas, com sobra, falta ou fechamento
+                                    conferido.
+                                </Typography>
+                            </Box>
+
+                            <TableContainer>
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Sessão</TableCell>
+                                            <TableCell>Operador</TableCell>
+                                            <TableCell>Abertura</TableCell>
+                                            <TableCell>Fechamento</TableCell>
+                                            <TableCell>Esperado</TableCell>
+                                            <TableCell>Conferido</TableCell>
+                                            <TableCell>Diferença</TableCell>
+                                            <TableCell>Detalhes</TableCell>
+                                            <TableCell>Status</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {closingSessions.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={9}
+                                                    sx={{ py: 4, color: "text.secondary" }}
+                                                >
+                                                    Nenhum fechamento encontrado para o período
+                                                    selecionado.
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            closingSessions.map((session) => (
+                                                <TableRow hover key={session.id}>
+                                                    <TableCell sx={{ fontWeight: 700 }}>
+                                                        Caixa #{session.id}
+                                                    </TableCell>
+                                                    <TableCell>{session.operatorName}</TableCell>
+                                                    <TableCell>{session.openedTimeLabel}</TableCell>
+                                                    <TableCell>{session.closedTimeLabel}</TableCell>
+                                                    <TableCell>{session.expectedTotal}</TableCell>
+                                                    <TableCell>{session.checkedTotal}</TableCell>
+                                                    <TableCell
+                                                        sx={{
+                                                            fontWeight: 700,
+                                                            color:
+                                                                session.totalDifferenceNumber < 0
+                                                                    ? "error.main"
+                                                                    : session.totalDifferenceNumber > 0
+                                                                      ? "warning.main"
+                                                                      : "success.main",
+                                                        }}
+                                                    >
+                                                        {session.totalDifference}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        D: {session.cashDifference} | P: {session.pixDifference}
+                                                        {" | "}C: {session.cardDifference}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Chip
+                                                            label={session.statusLabel}
+                                                            color={closingStatusColorMap[session.status]}
+                                                            size="small"
+                                                            sx={{ fontWeight: 800 }}
+                                                        />
                                                     </TableCell>
                                                 </TableRow>
                                             ))

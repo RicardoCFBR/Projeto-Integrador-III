@@ -629,6 +629,59 @@ class FinanceOperationsView(APIView):
         return Response({"operacoes": operacoes})
 
 
+class FinanceClosingMetricsView(APIView):
+    def get(self, request):
+        sessoes = apply_date_filters(
+            SessaoCaixa.objects.filter(status=SessaoCaixa.Status.FECHADO).order_by("-fechado_em"),
+            "fechado_em",
+            request,
+        )[:10]
+
+        fechamentos = []
+        for sessao in sessoes:
+            diferenca_total = sessao.diferenca_total or Decimal("0.00")
+            esperado_total = (
+                (sessao.valor_esperado_dinheiro or Decimal("0.00"))
+                + (sessao.valor_esperado_pix or Decimal("0.00"))
+                + (sessao.valor_esperado_cartao or Decimal("0.00"))
+            )
+            conferido_total = (
+                (sessao.fechamento_dinheiro_informado or Decimal("0.00"))
+                + (sessao.fechamento_pix_informado or Decimal("0.00"))
+                + (sessao.fechamento_cartao_informado or Decimal("0.00"))
+            )
+
+            if diferenca_total > 0:
+                status_fechamento = "sobra"
+                status_fechamento_label = "Sobra"
+            elif diferenca_total < 0:
+                status_fechamento = "falta"
+                status_fechamento_label = "Falta"
+            else:
+                status_fechamento = "conferido"
+                status_fechamento_label = "Conferido"
+
+            fechamentos.append(
+                {
+                    "id": sessao.id,
+                    "operador_nome": sessao.operador_nome,
+                    "aberto_em": sessao.aberto_em,
+                    "fechado_em": sessao.fechado_em,
+                    "fundo_troco_inicial": sessao.fundo_troco_inicial,
+                    "esperado_total": esperado_total,
+                    "conferido_total": conferido_total,
+                    "diferenca_total": diferenca_total,
+                    "diferenca_dinheiro": sessao.diferenca_dinheiro or Decimal("0.00"),
+                    "diferenca_pix": sessao.diferenca_pix or Decimal("0.00"),
+                    "diferenca_cartao": sessao.diferenca_cartao or Decimal("0.00"),
+                    "status_fechamento": status_fechamento,
+                    "status_fechamento_label": status_fechamento_label,
+                }
+            )
+
+        return Response({"fechamentos": fechamentos})
+
+
 class CashOverviewView(APIView):
     def get(self, request):
         sessao = get_open_cash_session()
