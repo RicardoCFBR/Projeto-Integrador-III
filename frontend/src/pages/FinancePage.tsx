@@ -26,12 +26,30 @@ import {
 
 import {
     getFinanceClosingMetrics,
+    getFinanceCharts,
     getFinanceOperations,
     getFinanceSummary,
+    type FinanceChartSalesPoint,
     type FinanceClosingSession,
     type FinanceOperation,
+    type FinancePaymentDistributionPoint,
     type FinanceSummary,
 } from "../services/barControlApi";
+import {
+    Bar,
+    BarChart,
+    Cell,
+    CartesianGrid,
+    Legend,
+    Line,
+    LineChart,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
+} from "recharts";
 
 type FinancePeriod = "hoje" | "ontem" | "ultimos_7_dias" | "personalizado";
 type FinanceOperationView = "all" | "sales" | "movements";
@@ -79,6 +97,33 @@ const closingStatusColorMap: Record<
     falta: "error",
 };
 
+const paymentChartColors: Record<FinancePaymentDistributionPoint["paymentMethod"], string> = {
+    cash: "#2E7D32",
+    pix: "#0288D1",
+    card: "#F9A825",
+};
+
+function normalizeTooltipValue(
+    value: string | number | ReadonlyArray<string | number> | undefined,
+) {
+    if (typeof value === "number") {
+        return value;
+    }
+
+    if (typeof value === "string") {
+        return Number.parseFloat(value);
+    }
+
+    if (Array.isArray(value) && value.length > 0) {
+        const firstValue = value[0];
+        return typeof firstValue === "number"
+            ? firstValue
+            : Number.parseFloat(String(firstValue));
+    }
+
+    return 0;
+}
+
 export function FinancePage() {
     const [period, setPeriod] = useState<FinancePeriod>("hoje");
     const [startDate, setStartDate] = useState("");
@@ -86,6 +131,10 @@ export function FinancePage() {
     const [summary, setSummary] = useState<FinanceSummary>(emptySummary);
     const [operations, setOperations] = useState<FinanceOperation[]>([]);
     const [closingSessions, setClosingSessions] = useState<FinanceClosingSession[]>([]);
+    const [salesByDay, setSalesByDay] = useState<FinanceChartSalesPoint[]>([]);
+    const [paymentDistribution, setPaymentDistribution] = useState<
+        FinancePaymentDistributionPoint[]
+    >([]);
     const [operationView, setOperationView] = useState<FinanceOperationView>("all");
     const [loading, setLoading] = useState(true);
     const [pageError, setPageError] = useState<string | null>(null);
@@ -167,15 +216,19 @@ export function FinancePage() {
                 endDate: period === "personalizado" ? endDate : undefined,
             } as const;
 
-            const [summaryResponse, operationsResponse, closingsResponse] = await Promise.all([
+            const [summaryResponse, operationsResponse, closingsResponse, chartsResponse] =
+                await Promise.all([
                 getFinanceSummary(filterInput),
                 getFinanceOperations(filterInput),
                 getFinanceClosingMetrics(filterInput),
+                getFinanceCharts(filterInput),
             ]);
 
             setSummary(summaryResponse);
             setOperations(operationsResponse);
             setClosingSessions(closingsResponse);
+            setSalesByDay(chartsResponse.salesByDay);
+            setPaymentDistribution(chartsResponse.paymentDistribution);
         } catch (requestError) {
             setPageError(
                 requestError instanceof Error
@@ -308,6 +361,177 @@ export function FinancePage() {
                                 </Stack>
                             </Paper>
                         ))}
+                    </Box>
+
+                    <Box
+                        sx={{
+                            display: "grid",
+                            gridTemplateColumns: {
+                                xs: "1fr",
+                                xl: "repeat(3, minmax(0, 1fr))",
+                            },
+                            gap: 2,
+                        }}
+                    >
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: { xs: 2.5, md: 3 },
+                                borderRadius: "12px",
+                                bgcolor: "background.paper",
+                                boxShadow: "0 12px 28px rgba(45, 52, 51, 0.05)",
+                            }}
+                        >
+                            <Stack spacing={1.5}>
+                                <Box>
+                                    <Typography variant="h5">Vendas por Dia</Typography>
+                                    <Typography color="text.secondary">
+                                        Quantidade de vendas e valor total por dia no período.
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ width: "100%", height: 280 }}>
+                                    <ResponsiveContainer>
+                                        <BarChart data={salesByDay}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="dateLabel" />
+                                            <YAxis />
+                                            <Tooltip
+                                                formatter={(value, name) => {
+                                                    const normalizedValue = normalizeTooltipValue(value);
+                                                    return [
+                                                    name === "total"
+                                                        ? new Intl.NumberFormat("pt-BR", {
+                                                              style: "currency",
+                                                              currency: "BRL",
+                                                          }).format(normalizedValue)
+                                                        : normalizedValue,
+                                                    name === "total" ? "Faturamento" : "Vendas",
+                                                ];
+                                                }}
+                                            />
+                                            <Legend />
+                                            <Bar
+                                                dataKey="salesCount"
+                                                name="Vendas"
+                                                fill="#0288D1"
+                                                radius={[6, 6, 0, 0]}
+                                            />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </Box>
+                            </Stack>
+                        </Paper>
+
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: { xs: 2.5, md: 3 },
+                                borderRadius: "12px",
+                                bgcolor: "background.paper",
+                                boxShadow: "0 12px 28px rgba(45, 52, 51, 0.05)",
+                            }}
+                        >
+                            <Stack spacing={1.5}>
+                                <Box>
+                                    <Typography variant="h5">Distribuição por Pagamento</Typography>
+                                    <Typography color="text.secondary">
+                                        Percentual de dinheiro, Pix e cartão no faturamento.
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ width: "100%", height: 280 }}>
+                                    <ResponsiveContainer>
+                                        <PieChart>
+                                            <Pie
+                                                data={paymentDistribution}
+                                                dataKey="total"
+                                                nameKey="paymentMethodLabel"
+                                                innerRadius={58}
+                                                outerRadius={90}
+                                                paddingAngle={3}
+                                                label={({ payload }) =>
+                                                    payload
+                                                        ? `${payload.paymentMethodLabel} ${payload.percentage.toFixed(1)}%`
+                                                        : ""
+                                                }
+                                            >
+                                                {paymentDistribution.map((entry) => (
+                                                    <Cell
+                                                        key={entry.paymentMethod}
+                                                        fill={paymentChartColors[entry.paymentMethod]}
+                                                    />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip
+                                                formatter={(value, _name, item) => {
+                                                    const normalizedValue = normalizeTooltipValue(value);
+                                                    const payload =
+                                                        item?.payload as
+                                                            | FinancePaymentDistributionPoint
+                                                            | undefined;
+                                                    return [
+                                                        new Intl.NumberFormat("pt-BR", {
+                                                            style: "currency",
+                                                            currency: "BRL",
+                                                        }).format(normalizedValue),
+                                                        payload
+                                                            ? `${payload.paymentMethodLabel} (${payload.percentage.toFixed(1)}%)`
+                                                            : "Forma de pagamento",
+                                                    ];
+                                                }}
+                                            />
+                                            <Legend />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </Box>
+                            </Stack>
+                        </Paper>
+
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: { xs: 2.5, md: 3 },
+                                borderRadius: "12px",
+                                bgcolor: "background.paper",
+                                boxShadow: "0 12px 28px rgba(45, 52, 51, 0.05)",
+                            }}
+                        >
+                            <Stack spacing={1.5}>
+                                <Box>
+                                    <Typography variant="h5">Evolução do Faturamento</Typography>
+                                    <Typography color="text.secondary">
+                                        Tendência do valor vendido ao longo do período selecionado.
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ width: "100%", height: 280 }}>
+                                    <ResponsiveContainer>
+                                        <LineChart data={salesByDay}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="dateLabel" />
+                                            <YAxis />
+                                            <Tooltip
+                                                formatter={(value) => [
+                                                    new Intl.NumberFormat("pt-BR", {
+                                                        style: "currency",
+                                                        currency: "BRL",
+                                                    }).format(normalizeTooltipValue(value)),
+                                                    "Faturamento",
+                                                ]}
+                                            />
+                                            <Legend />
+                                            <Line
+                                                type="monotone"
+                                                dataKey="total"
+                                                name="Faturamento"
+                                                stroke="#2E7D32"
+                                                strokeWidth={3}
+                                                dot={{ r: 4 }}
+                                                activeDot={{ r: 6 }}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </Box>
+                            </Stack>
+                        </Paper>
                     </Box>
 
                     <Paper

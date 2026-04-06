@@ -682,6 +682,70 @@ class FinanceClosingMetricsView(APIView):
         return Response({"fechamentos": fechamentos})
 
 
+class FinanceChartsView(APIView):
+    def get(self, request):
+        vendas = apply_date_filters(VendaCaixa.objects.all(), "criada_em", request)
+
+        vendas_por_dia = (
+            vendas.annotate(dia=TruncDate("criada_em"))
+            .values("dia")
+            .annotate(
+                total=Coalesce(
+                    Sum("valor_total"),
+                    0,
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                ),
+                quantidade=Count("id"),
+            )
+            .order_by("dia")
+        )
+
+        total_geral = sum((venda.valor_total for venda in vendas), Decimal("0.00"))
+
+        distribuicao_pagamentos = []
+        for forma_pagamento, forma_label in [
+            (VendaCaixa.FormaPagamento.DINHEIRO, "Dinheiro"),
+            (VendaCaixa.FormaPagamento.PIX, "Pix"),
+            (VendaCaixa.FormaPagamento.CARTAO, "Cartão"),
+        ]:
+            total_forma = sum(
+                (
+                    venda.valor_total
+                    for venda in vendas
+                    if venda.forma_pagamento == forma_pagamento
+                ),
+                Decimal("0.00"),
+            )
+            percentual = (
+                (total_forma / total_geral * Decimal("100.00"))
+                if total_geral > 0
+                else Decimal("0.00")
+            )
+            distribuicao_pagamentos.append(
+                {
+                    "forma_pagamento": forma_pagamento,
+                    "forma_pagamento_label": forma_label,
+                    "total": total_forma,
+                    "percentual": percentual.quantize(Decimal("0.01")),
+                }
+            )
+
+        return Response(
+            {
+                "vendas_por_dia": [
+                    {
+                        "dia": item["dia"].isoformat(),
+                        "total": item["total"],
+                        "quantidade": item["quantidade"],
+                    }
+                    for item in vendas_por_dia
+                    if item["dia"] is not None
+                ],
+                "distribuicao_pagamentos": distribuicao_pagamentos,
+            }
+        )
+
+
 class CashOverviewView(APIView):
     def get(self, request):
         sessao = get_open_cash_session()

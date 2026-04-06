@@ -194,6 +194,22 @@ export type FinanceClosingSession = {
     closedTimeLabel: string;
 };
 
+export type FinanceChartSalesPoint = {
+    date: string;
+    dateLabel: string;
+    total: number;
+    totalLabel: string;
+    salesCount: number;
+};
+
+export type FinancePaymentDistributionPoint = {
+    paymentMethod: "cash" | "pix" | "card";
+    paymentMethodLabel: string;
+    total: number;
+    totalLabel: string;
+    percentage: number;
+};
+
 type ApiTabStatus = "aberta" | "encerrada";
 
 type ApiTabSummary = {
@@ -353,6 +369,24 @@ type ApiFinanceClosingSession = {
 
 type ApiFinanceClosingMetrics = {
     fechamentos: ApiFinanceClosingSession[];
+};
+
+type ApiFinanceChartSalesPoint = {
+    dia: string;
+    total: string;
+    quantidade: number;
+};
+
+type ApiFinancePaymentDistributionPoint = {
+    forma_pagamento: "dinheiro" | "pix" | "cartao";
+    forma_pagamento_label: string;
+    total: string;
+    percentual: string;
+};
+
+type ApiFinanceCharts = {
+    vendas_por_dia: ApiFinanceChartSalesPoint[];
+    distribuicao_pagamentos: ApiFinancePaymentDistributionPoint[];
 };
 
 function buildUrl(path: string) {
@@ -791,6 +825,50 @@ function mapFinanceClosingSession(session: ApiFinanceClosingSession): FinanceClo
     };
 }
 
+function mapFinancePaymentMethod(
+    method: ApiFinancePaymentDistributionPoint["forma_pagamento"],
+): "cash" | "pix" | "card" {
+    switch (method) {
+        case "dinheiro":
+            return "cash";
+        case "pix":
+            return "pix";
+        default:
+            return "card";
+    }
+}
+
+function mapFinanceChartSalesPoint(point: ApiFinanceChartSalesPoint): FinanceChartSalesPoint {
+    const total = parseCurrency(point.total);
+    const date = new Date(`${point.dia}T00:00:00`);
+
+    return {
+        date: point.dia,
+        dateLabel: date.toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+        }),
+        total,
+        totalLabel: formatCurrency(total),
+        salesCount: point.quantidade,
+    };
+}
+
+function mapFinancePaymentDistributionPoint(
+    point: ApiFinancePaymentDistributionPoint,
+): FinancePaymentDistributionPoint {
+    const total = parseCurrency(point.total);
+    const percentage = parseCurrency(point.percentual);
+
+    return {
+        paymentMethod: mapFinancePaymentMethod(point.forma_pagamento),
+        paymentMethodLabel: point.forma_pagamento_label,
+        total,
+        totalLabel: formatCurrency(total),
+        percentage,
+    };
+}
+
 export async function listTabsMural() {
     const response = await request<ApiTabSummary[]>("/comandas/mural/");
     return response.map(mapTabSummary);
@@ -1093,4 +1171,36 @@ export async function getFinanceClosingMetrics(input?: {
     );
 
     return response.fechamentos.map(mapFinanceClosingSession);
+}
+
+export async function getFinanceCharts(input?: {
+    period?: "hoje" | "ontem" | "ultimos_7_dias" | "personalizado";
+    startDate?: string;
+    endDate?: string;
+}) {
+    const params = new URLSearchParams();
+
+    if (input?.period && input.period !== "personalizado") {
+        params.set("periodo", input.period);
+    }
+
+    if (input?.startDate) {
+        params.set("data_inicial", input.startDate);
+    }
+
+    if (input?.endDate) {
+        params.set("data_final", input.endDate);
+    }
+
+    const queryString = params.toString();
+    const response = await request<ApiFinanceCharts>(
+        `/financeiro/graficos/${queryString ? `?${queryString}` : ""}`,
+    );
+
+    return {
+        salesByDay: response.vendas_por_dia.map(mapFinanceChartSalesPoint),
+        paymentDistribution: response.distribuicao_pagamentos.map(
+            mapFinancePaymentDistributionPoint,
+        ),
+    };
 }
