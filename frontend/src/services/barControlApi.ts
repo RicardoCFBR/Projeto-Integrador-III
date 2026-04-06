@@ -47,6 +47,14 @@ export type Product = {
     stockType: string;
 };
 
+export type ProductCategory = {
+    id: number;
+    name: string;
+    slug: string;
+    isActive: boolean;
+    order: number;
+};
+
 export type StockUnit =
     | "un"
     | "g"
@@ -55,9 +63,17 @@ export type StockUnit =
     | "l"
     | "porcao";
 
-export type StockItem = {
+export type StockProduct = {
     id: number;
     name: string;
+    description: string;
+    price: string;
+    priceNumber: number;
+    categoryId: number | null;
+    categoryName: string;
+    categorySlug: string;
+    stockType: string;
+    controlsStock: boolean;
     unit: StockUnit;
     unitLabel: string;
     currentStock: number;
@@ -69,12 +85,37 @@ export type StockItem = {
     createdAt: string;
 };
 
-export type StockItemInput = {
+export type StockProductInput = {
     name: string;
+    description: string;
+    price: number;
+    categoryId: number | null;
+    stockType: string;
+    controlsStock: boolean;
     unit: StockUnit;
     currentStock: number;
     minimumStock: number;
     isActive: boolean;
+};
+
+export type StockMovementType =
+    | "entrada"
+    | "uso_interno"
+    | "ajuste"
+    | "perda"
+    | "venda";
+
+export type StockMovement = {
+    id: number;
+    productId: number;
+    productName: string;
+    type: StockMovementType;
+    typeLabel: string;
+    quantity: number;
+    quantityLabel: string;
+    observation: string;
+    createdAt: string;
+    timeLabel: string;
 };
 
 export type CashSession = {
@@ -276,20 +317,35 @@ type ApiProduct = {
     nome: string;
     descricao: string;
     preco_venda: string;
+    categoria: number | null;
     categoria_nome: string | null;
     categoria_slug: string | null;
     tipo_estoque: string;
-    ativo: boolean;
-};
-
-type ApiStockItem = {
-    id: number;
-    nome: string;
+    controla_estoque: boolean;
     unidade_medida: StockUnit;
     unidade_medida_display: string;
     estoque_atual: string;
     estoque_minimo: string;
     ativo: boolean;
+    criado_em: string;
+};
+
+type ApiProductCategory = {
+    id: number;
+    nome: string;
+    ativo: boolean;
+    ordem: number;
+    slug: string;
+};
+
+type ApiStockMovement = {
+    id: number;
+    produto: number;
+    produto_nome: string;
+    tipo: StockMovementType;
+    tipo_label: string;
+    quantidade: string;
+    observacao: string;
     criado_em: string;
 };
 
@@ -910,22 +966,61 @@ function mapFinancePaymentDistributionPoint(
     };
 }
 
-function mapStockItem(item: ApiStockItem): StockItem {
-    const currentStock = parseCurrency(item.estoque_atual);
-    const minimumStock = parseCurrency(item.estoque_minimo);
+function mapProductCategory(category: ApiProductCategory): ProductCategory {
+    return {
+        id: category.id,
+        name: category.nome,
+        slug: category.slug,
+        isActive: category.ativo,
+        order: category.ordem,
+    };
+}
+
+function mapStockProduct(product: ApiProduct): StockProduct {
+    const currentStock = parseCurrency(product.estoque_atual);
+    const minimumStock = parseCurrency(product.estoque_minimo);
+    const priceNumber = parseCurrency(product.preco_venda);
 
     return {
-        id: item.id,
-        name: item.nome,
-        unit: item.unidade_medida,
-        unitLabel: item.unidade_medida_display,
+        id: product.id,
+        name: product.nome,
+        description: product.descricao,
+        price: formatCurrency(priceNumber),
+        priceNumber,
+        categoryId: product.categoria,
+        categoryName: product.categoria_nome ?? "Sem categoria",
+        categorySlug: product.categoria_slug ?? "sem-categoria",
+        stockType: product.tipo_estoque,
+        controlsStock: product.controla_estoque,
+        unit: product.unidade_medida,
+        unitLabel: product.unidade_medida_display,
         currentStock,
-        currentStockLabel: `${currentStock.toLocaleString("pt-BR")} ${item.unidade_medida_display}`,
+        currentStockLabel: `${currentStock.toLocaleString("pt-BR")} ${product.unidade_medida_display}`,
         minimumStock,
-        minimumStockLabel: `${minimumStock.toLocaleString("pt-BR")} ${item.unidade_medida_display}`,
-        isActive: item.ativo,
+        minimumStockLabel: `${minimumStock.toLocaleString("pt-BR")} ${product.unidade_medida_display}`,
+        isActive: product.ativo,
         isBelowMinimum: currentStock <= minimumStock,
-        createdAt: item.criado_em,
+        createdAt: product.criado_em,
+    };
+}
+
+function mapStockMovement(movement: ApiStockMovement): StockMovement {
+    const quantity = parseCurrency(movement.quantidade);
+
+    return {
+        id: movement.id,
+        productId: movement.produto,
+        productName: movement.produto_nome,
+        type: movement.tipo,
+        typeLabel: movement.tipo_label,
+        quantity,
+        quantityLabel: quantity.toLocaleString("pt-BR"),
+        observation: movement.observacao,
+        createdAt: movement.criado_em,
+        timeLabel: new Date(movement.criado_em).toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+        }),
     };
 }
 
@@ -1021,16 +1116,28 @@ export async function listProducts() {
         }));
 }
 
-export async function listStockItems() {
-    const response = await request<ApiStockItem[]>("/insumos/");
-    return response.map(mapStockItem);
+export async function listProductCategories() {
+    const response = await request<ApiProductCategory[]>("/categorias-produto/");
+    return response.map(mapProductCategory);
 }
 
-export async function createStockItem(input: StockItemInput) {
-    const response = await request<ApiStockItem>("/insumos/", {
+export async function listStockProducts() {
+    const response = await request<ApiProduct[]>("/produtos/?include_inactive=true");
+    return response
+        .filter((product) => product.controla_estoque)
+        .map(mapStockProduct);
+}
+
+export async function createStockProduct(input: StockProductInput) {
+    const response = await request<ApiProduct>("/produtos/", {
         method: "POST",
         body: JSON.stringify({
             nome: input.name,
+            descricao: input.description,
+            preco_venda: input.price.toFixed(2),
+            categoria: input.categoryId,
+            tipo_estoque: input.stockType,
+            controla_estoque: input.controlsStock,
             unidade_medida: input.unit,
             estoque_atual: input.currentStock.toFixed(3),
             estoque_minimo: input.minimumStock.toFixed(3),
@@ -1038,14 +1145,19 @@ export async function createStockItem(input: StockItemInput) {
         }),
     });
 
-    return mapStockItem(response);
+    return mapStockProduct(response);
 }
 
-export async function updateStockItem(itemId: number, input: StockItemInput) {
-    const response = await request<ApiStockItem>(`/insumos/${itemId}/`, {
+export async function updateStockProduct(itemId: number, input: StockProductInput) {
+    const response = await request<ApiProduct>(`/produtos/${itemId}/`, {
         method: "PATCH",
         body: JSON.stringify({
             nome: input.name,
+            descricao: input.description,
+            preco_venda: input.price.toFixed(2),
+            categoria: input.categoryId,
+            tipo_estoque: input.stockType,
+            controla_estoque: input.controlsStock,
             unidade_medida: input.unit,
             estoque_atual: input.currentStock.toFixed(3),
             estoque_minimo: input.minimumStock.toFixed(3),
@@ -1053,7 +1165,31 @@ export async function updateStockItem(itemId: number, input: StockItemInput) {
         }),
     });
 
-    return mapStockItem(response);
+    return mapStockProduct(response);
+}
+
+export async function createStockMovement(input: {
+    productId: number;
+    type: Exclude<StockMovementType, "venda">;
+    quantity: number;
+    observation?: string;
+}) {
+    const response = await request<ApiStockMovement>("/estoque/movimentacoes/registrar/", {
+        method: "POST",
+        body: JSON.stringify({
+            produto_id: input.productId,
+            tipo: input.type,
+            quantidade: input.quantity.toFixed(3),
+            observacao: input.observation ?? "",
+        }),
+    });
+
+    return mapStockMovement(response);
+}
+
+export async function listStockMovements() {
+    const response = await request<ApiStockMovement[]>("/estoque/movimentacoes/");
+    return response.map(mapStockMovement);
 }
 
 export async function getCashOverview() {

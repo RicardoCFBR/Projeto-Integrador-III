@@ -23,6 +23,14 @@ class Produto(models.Model):
         RECEITA = "recipe", "Receita"
         NAO_CONTROLADO = "untracked", "Nao controlado"
 
+    class UnidadeMedida(models.TextChoices):
+        UNIDADE = "un", "Unidade"
+        GRAMA = "g", "Grama"
+        QUILOGRAMA = "kg", "Quilograma"
+        MILILITRO = "ml", "Mililitro"
+        LITRO = "l", "Litro"
+        PORCAO = "porcao", "Porcao"
+
     nome = models.CharField(max_length=120)
     descricao = models.CharField(max_length=180, blank=True)
     preco_venda = models.DecimalField(max_digits=10, decimal_places=2)
@@ -38,6 +46,14 @@ class Produto(models.Model):
         choices=TipoEstoque.choices,
         default=TipoEstoque.UNITARIO,
     )
+    controla_estoque = models.BooleanField(default=True)
+    unidade_medida = models.CharField(
+        max_length=10,
+        choices=UnidadeMedida.choices,
+        default=UnidadeMedida.UNIDADE,
+    )
+    estoque_atual = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    estoque_minimo = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -355,3 +371,30 @@ class ItemVendaCaixa(models.Model):
 
     def __str__(self) -> str:
         return f"{self.venda.codigo} - {self.produto.nome}"
+
+
+class MovimentacaoEstoque(models.Model):
+    class Tipo(models.TextChoices):
+        ENTRADA = "entrada", "Entrada"
+        USO_INTERNO = "uso_interno", "Uso interno"
+        AJUSTE = "ajuste", "Ajuste"
+        PERDA = "perda", "Perda"
+        VENDA = "venda", "Venda"
+
+    produto = models.ForeignKey(
+        Produto,
+        on_delete=models.CASCADE,
+        related_name="movimentacoes_estoque",
+    )
+    tipo = models.CharField(max_length=16, choices=Tipo.choices)
+    quantidade = models.DecimalField(max_digits=10, decimal_places=3)
+    observacao = models.CharField(max_length=180, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-criado_em", "-id"]
+        verbose_name = "Movimentacao de estoque"
+        verbose_name_plural = "Movimentacoes de estoque"
+
+    def __str__(self) -> str:
+        return f"{self.produto.nome} - {self.get_tipo_display()}"

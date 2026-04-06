@@ -17,6 +17,7 @@ from .models import (
     Insumo,
     ItemComanda,
     ItemVendaCaixa,
+    MovimentacaoEstoque,
     MovimentacaoCaixa,
     Produto,
     SessaoCaixa,
@@ -34,6 +35,8 @@ from .serializers import (
     ItemComandaCreateSerializer,
     ItemComandaSerializer,
     ItemVendaCaixaSerializer,
+    MovimentacaoEstoqueCreateSerializer,
+    MovimentacaoEstoqueSerializer,
     MovimentacaoCaixaCreateSerializer,
     MovimentacaoCaixaSerializer,
     ProdutoSerializer,
@@ -222,6 +225,29 @@ def apply_date_filters(queryset, field_name, request):
     return queryset
 
 
+def apply_stock_movement(produto, tipo, quantidade, observacao=""):
+    produto.refresh_from_db(fields=["estoque_atual"])
+
+    if tipo == MovimentacaoEstoque.Tipo.ENTRADA:
+        novo_estoque = produto.estoque_atual + quantidade
+    elif tipo == MovimentacaoEstoque.Tipo.AJUSTE:
+        novo_estoque = quantidade
+    else:
+        novo_estoque = produto.estoque_atual - quantidade
+        if novo_estoque < 0:
+            raise ValueError(f"Estoque insuficiente para o produto {produto.nome}.")
+
+    produto.estoque_atual = novo_estoque
+    produto.save(update_fields=["estoque_atual"])
+
+    return MovimentacaoEstoque.objects.create(
+        produto=produto,
+        tipo=tipo,
+        quantidade=quantidade,
+        observacao=observacao,
+    )
+
+
 class CategoriaProdutoViewSet(viewsets.ModelViewSet):
     queryset = CategoriaProduto.objects.all()
     serializer_class = CategoriaProdutoSerializer
@@ -232,9 +258,15 @@ class ProdutoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Produto.objects.select_related("categoria").all()
-        if self.action == "list":
+        include_inactive = self.request.query_params.get("include_inactive") == "true"
+        if self.action == "list" and not include_inactive:
             queryset = queryset.filter(ativo=True)
         return queryset
+
+
+class MovimentacaoEstoqueViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = MovimentacaoEstoque.objects.select_related("produto").all()
+    serializer_class = MovimentacaoEstoqueSerializer
 
 
 class InsumoViewSet(viewsets.ModelViewSet):
@@ -413,6 +445,14 @@ class ComandaViewSet(viewsets.ModelViewSet):
                     for item in itens
                 ]
             )
+            for item in itens:
+                if item.produto.controla_estoque:
+                    apply_stock_movement(
+                        item.produto,
+                        MovimentacaoEstoque.Tipo.VENDA,
+                        Decimal(item.quantidade),
+                        f"Baixa automatica da venda {venda.codigo}",
+                    )
             comanda.status = Comanda.Status.ENCERRADA
             comanda.encerrada_em = timezone.now()
             comanda.save(update_fields=["status", "encerrada_em"])
@@ -914,6 +954,35 @@ class CashMovementCreateView(APIView):
         )
 
 
+class StockMovementCreateView(APIView):
+    def post(self, request):
+        serializer = MovimentacaoEstoqueCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        produto = Produto.objects.get(pk=serializer.validated_data["produto_id"])
+        quantidade = serializer.validated_data["quantidade"]
+        tipo = serializer.validated_data["tipo"]
+        observacao = serializer.validated_data.get("observacao", "")
+
+        try:
+            movimentacao = apply_stock_movement(
+                produto,
+                tipo,
+                quantidade,
+                observacao,
+            )
+        except ValueError as error:
+            return Response(
+                {"detail": str(error)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            MovimentacaoEstoqueSerializer(movimentacao).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class CashSaleCreateView(APIView):
     def post(self, request):
         sessao = get_open_cash_session()
@@ -975,6 +1044,15 @@ class CashSaleCreateView(APIView):
                     for item in itens_payload
                 ]
             )
+            for item in itens_payload:
+                produto = produtos[item["produto_id"]]
+                if produto.controla_estoque:
+                    apply_stock_movement(
+                        produto,
+                        MovimentacaoEstoque.Tipo.VENDA,
+                        Decimal(item["quantidade"]),
+                        f"Baixa automatica da venda {venda.codigo}",
+                    )
 
         venda = VendaCaixa.objects.prefetch_related(
             Prefetch(

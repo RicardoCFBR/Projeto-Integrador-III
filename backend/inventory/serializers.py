@@ -9,6 +9,7 @@ from .models import (
     Insumo,
     ItemComanda,
     ItemVendaCaixa,
+    MovimentacaoEstoque,
     MovimentacaoCaixa,
     Produto,
     SessaoCaixa,
@@ -25,6 +26,10 @@ class CategoriaProdutoSerializer(serializers.ModelSerializer):
 class ProdutoSerializer(serializers.ModelSerializer):
     categoria_nome = serializers.CharField(source="categoria.nome", read_only=True)
     categoria_slug = serializers.CharField(source="categoria.slug", read_only=True)
+    unidade_medida_display = serializers.CharField(
+        source="get_unidade_medida_display",
+        read_only=True,
+    )
 
     class Meta:
         model = Produto
@@ -37,6 +42,11 @@ class ProdutoSerializer(serializers.ModelSerializer):
             "categoria_nome",
             "categoria_slug",
             "tipo_estoque",
+            "controla_estoque",
+            "unidade_medida",
+            "unidade_medida_display",
+            "estoque_atual",
+            "estoque_minimo",
             "ativo",
             "criado_em",
         ]
@@ -260,6 +270,40 @@ class MovimentacaoCaixaCreateSerializer(serializers.Serializer):
         min_value=Decimal("0.01"),
     )
     descricao = serializers.CharField(max_length=160, required=False, allow_blank=True)
+
+
+class MovimentacaoEstoqueSerializer(serializers.ModelSerializer):
+    tipo_label = serializers.CharField(source="get_tipo_display", read_only=True)
+    produto_nome = serializers.CharField(source="produto.nome", read_only=True)
+
+    class Meta:
+        model = MovimentacaoEstoque
+        fields = [
+            "id",
+            "produto",
+            "produto_nome",
+            "tipo",
+            "tipo_label",
+            "quantidade",
+            "observacao",
+            "criado_em",
+        ]
+
+
+class MovimentacaoEstoqueCreateSerializer(serializers.Serializer):
+    produto_id = serializers.IntegerField()
+    tipo = serializers.ChoiceField(choices=MovimentacaoEstoque.Tipo.choices)
+    quantidade = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        min_value=Decimal("0.001"),
+    )
+    observacao = serializers.CharField(max_length=180, required=False, allow_blank=True)
+
+    def validate_produto_id(self, value):
+        if not Produto.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Produto nao encontrado.")
+        return value
 
 
 class SessaoCaixaFechamentoSerializer(serializers.Serializer):
