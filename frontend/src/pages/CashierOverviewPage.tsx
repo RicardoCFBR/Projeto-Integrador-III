@@ -191,27 +191,38 @@ export function CashierOverviewPage() {
     }
 
     if (!isCashOpen) {
-        return <Stack spacing={3}><Paper elevation={0} sx={{ p: { xs: 2.5, md: 3 }, borderRadius: "12px", bgcolor: alpha("#ffffff", 0.78), backdropFilter: "blur(12px)" }}><Stack direction="row" spacing={1.25} alignItems="center"><PointOfSaleRoundedIcon color="secondary" /><Box><Typography variant="h4">Caixa</Typography><Typography color="text.secondary">Status do PDV: Caixa Fechado</Typography></Box></Stack></Paper><Box sx={{ minHeight: "calc(100vh - 240px)", display: "grid", placeItems: "center" }}><Paper elevation={0} sx={{ width: "min(100%, 460px)", p: { xs: 3, md: 4 }, borderRadius: "24px", bgcolor: alpha("#ffffff", 0.9), backdropFilter: "blur(14px)", boxShadow: "0 24px 60px rgba(45, 52, 51, 0.08)" }}><Stack spacing={3} alignItems="center" textAlign="center"><Box sx={{ width: 78, height: 78, display: "grid", placeItems: "center", borderRadius: "24px", bgcolor: "rgba(157, 241, 151, 0.34)", color: "primary.main" }}><PointOfSaleRoundedIcon sx={{ fontSize: 40 }} /></Box><Box><Typography variant="h4" sx={{ mb: 1 }}>Abertura de Caixa</Typography><Typography color="text.secondary">Inicie o turno definindo o valor inicial para troco e habilite as comandas e as vendas no caixa.</Typography></Box>{pageError || error ? <Typography color="error" sx={{ fontWeight: 700 }}>{pageError ?? error}</Typography> : null}<TextField fullWidth label="Fundo de Troco Inicial" placeholder="0,00" value={openingFundInput} onChange={(event) => setOpeningFundInput(event.target.value)} sx={{ "& .MuiOutlinedInput-root": { minHeight: 68, borderRadius: "14px", bgcolor: "#eef3f1" } }} InputProps={{ startAdornment: <InputAdornment position="start"><Typography sx={{ fontWeight: 800, color: "primary.main" }}>R$</Typography></InputAdornment> }} /><Button fullWidth disabled={actionLoading} onClick={() => void handleOpenCash()} size="large" startIcon={<LockOpenRoundedIcon />} sx={{ minHeight: 58, borderRadius: "14px", background: "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)", color: "#083f10" }} variant="contained">Abrir Caixa</Button></Stack></Paper></Box></Stack>;
+        return <Stack spacing={3}><Box><h1 style={{ margin: 0, color: "#4a76d6", fontSize: "clamp(2rem, 3vw, 3rem)", lineHeight: 1, letterSpacing: "-0.04em", fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800 }}>Caixa</h1><Typography color="text.secondary" sx={{ mt: 2.5 }}>Status do PDV: Caixa Fechado</Typography></Box><Box sx={{ minHeight: "calc(100vh - 240px)", display: "grid", placeItems: "center" }}><Paper elevation={0} sx={{ width: "min(100%, 460px)", p: { xs: 3, md: 4 }, borderRadius: "24px", bgcolor: alpha("#ffffff", 0.9), backdropFilter: "blur(14px)", boxShadow: "0 24px 60px rgba(45, 52, 51, 0.08)" }}><Stack spacing={3} alignItems="center" textAlign="center"><Box sx={{ width: 78, height: 78, display: "grid", placeItems: "center", borderRadius: "24px", bgcolor: "rgba(157, 241, 151, 0.34)", color: "primary.main" }}><PointOfSaleRoundedIcon sx={{ fontSize: 40 }} /></Box><Box><Typography variant="h4" sx={{ mb: 1 }}>Abertura de Caixa</Typography><Typography color="text.secondary">Inicie o turno definindo o valor inicial para troco e habilite as comandas e as vendas no caixa.</Typography></Box>{pageError || error ? <Typography color="error" sx={{ fontWeight: 700 }}>{pageError ?? error}</Typography> : null}<TextField fullWidth label="Fundo de Troco Inicial" placeholder="0,00" value={openingFundInput} onChange={(event) => setOpeningFundInput(event.target.value)} sx={{ "& .MuiOutlinedInput-root": { minHeight: 68, borderRadius: "14px", bgcolor: "#eef3f1" } }} InputProps={{ startAdornment: <InputAdornment position="start"><Typography sx={{ fontWeight: 800, color: "primary.main" }}>R$</Typography></InputAdornment> }} /><Button fullWidth disabled={actionLoading} onClick={() => void handleOpenCash()} size="large" startIcon={<LockOpenRoundedIcon />} sx={{ minHeight: 58, borderRadius: "14px", background: "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)", color: "#083f10" }} variant="contained">Abrir Caixa</Button></Stack></Paper></Box></Stack>;
     }
 
     return (
         <>
             <Stack spacing={3}>
-                <Paper elevation={0} sx={{ p: { xs: 2.5, md: 3 }, borderRadius: "12px", bgcolor: alpha("#ffffff", 0.78), backdropFilter: "blur(12px)" }}>
+                <Box>
                     <Stack direction={{ xs: "column", lg: "row" }} spacing={2} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
                         <Box>
                             <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 1 }}>
-                                <PointOfSaleRoundedIcon color="secondary" />
-                                <Typography variant="h4">Caixa Aberto</Typography>
+                                <h1
+                                    style={{
+                                        margin: 0,
+                                        color: "#4a76d6",
+                                        fontSize: "clamp(2rem, 3vw, 3rem)",
+                                        lineHeight: 1,
+                                        letterSpacing: "-0.04em",
+                                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                                        fontWeight: 800,
+                                    }}
+                                >
+                                    Caixa Aberto
+                                </h1>
                             </Stack>
-                            <Typography color="text.secondary">Aberto às {formatOpenedAt(session.openedAt)} com fundo inicial de {session.openingFund}.</Typography>
+                            <Typography color="text.secondary" sx={{ mt: 2.5 }}>Aberto às {formatOpenedAt(session.openedAt)} com fundo inicial de {session.openingFund}.</Typography>
                         </Box>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
                             <Button component={Link} to="/caixa/nova-venda" startIcon={<AddRoundedIcon />}>Inserir Venda</Button>
                             <Button color="inherit" disabled={actionLoading} onClick={handleOpenCloseDialog} startIcon={<LockRoundedIcon />}>Fechar Sessão</Button>
                         </Stack>
                     </Stack>
-                </Paper>
+                </Box>
 
                 {pageError || error ? <Typography color="error" sx={{ fontWeight: 700 }}>{pageError ?? error}</Typography> : null}
 

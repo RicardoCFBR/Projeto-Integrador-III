@@ -103,7 +103,7 @@ export function DashboardPage() {
         <div className="page-stack">
             <section className="dashboard-hero" aria-label="Resumo do dashboard">
                 <div>
-                    <h1>Dashboard</h1>
+                    <h1 style={{ color: "#4a76d6" }}>Dashboard</h1>
                     <p style={{ marginTop: 20 }}>
                         Veja os principais indicadores do sistema e o faturamento diario.
                     </p>
