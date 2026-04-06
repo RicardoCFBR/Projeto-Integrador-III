@@ -47,6 +47,36 @@ export type Product = {
     stockType: string;
 };
 
+export type StockUnit =
+    | "un"
+    | "g"
+    | "kg"
+    | "ml"
+    | "l"
+    | "porcao";
+
+export type StockItem = {
+    id: number;
+    name: string;
+    unit: StockUnit;
+    unitLabel: string;
+    currentStock: number;
+    currentStockLabel: string;
+    minimumStock: number;
+    minimumStockLabel: string;
+    isActive: boolean;
+    isBelowMinimum: boolean;
+    createdAt: string;
+};
+
+export type StockItemInput = {
+    name: string;
+    unit: StockUnit;
+    currentStock: number;
+    minimumStock: number;
+    isActive: boolean;
+};
+
 export type CashSession = {
     id: number | null;
     status: CashSessionStatus;
@@ -250,6 +280,17 @@ type ApiProduct = {
     categoria_slug: string | null;
     tipo_estoque: string;
     ativo: boolean;
+};
+
+type ApiStockItem = {
+    id: number;
+    nome: string;
+    unidade_medida: StockUnit;
+    unidade_medida_display: string;
+    estoque_atual: string;
+    estoque_minimo: string;
+    ativo: boolean;
+    criado_em: string;
 };
 
 type ApiCashSessionStatus = "aberto" | "fechado";
@@ -869,6 +910,25 @@ function mapFinancePaymentDistributionPoint(
     };
 }
 
+function mapStockItem(item: ApiStockItem): StockItem {
+    const currentStock = parseCurrency(item.estoque_atual);
+    const minimumStock = parseCurrency(item.estoque_minimo);
+
+    return {
+        id: item.id,
+        name: item.nome,
+        unit: item.unidade_medida,
+        unitLabel: item.unidade_medida_display,
+        currentStock,
+        currentStockLabel: `${currentStock.toLocaleString("pt-BR")} ${item.unidade_medida_display}`,
+        minimumStock,
+        minimumStockLabel: `${minimumStock.toLocaleString("pt-BR")} ${item.unidade_medida_display}`,
+        isActive: item.ativo,
+        isBelowMinimum: currentStock <= minimumStock,
+        createdAt: item.criado_em,
+    };
+}
+
 export async function listTabsMural() {
     const response = await request<ApiTabSummary[]>("/comandas/mural/");
     return response.map(mapTabSummary);
@@ -959,6 +1019,41 @@ export async function listProducts() {
             categorySlug: product.categoria_slug ?? "sem-categoria",
             stockType: product.tipo_estoque,
         }));
+}
+
+export async function listStockItems() {
+    const response = await request<ApiStockItem[]>("/insumos/");
+    return response.map(mapStockItem);
+}
+
+export async function createStockItem(input: StockItemInput) {
+    const response = await request<ApiStockItem>("/insumos/", {
+        method: "POST",
+        body: JSON.stringify({
+            nome: input.name,
+            unidade_medida: input.unit,
+            estoque_atual: input.currentStock.toFixed(3),
+            estoque_minimo: input.minimumStock.toFixed(3),
+            ativo: input.isActive,
+        }),
+    });
+
+    return mapStockItem(response);
+}
+
+export async function updateStockItem(itemId: number, input: StockItemInput) {
+    const response = await request<ApiStockItem>(`/insumos/${itemId}/`, {
+        method: "PATCH",
+        body: JSON.stringify({
+            nome: input.name,
+            unidade_medida: input.unit,
+            estoque_atual: input.currentStock.toFixed(3),
+            estoque_minimo: input.minimumStock.toFixed(3),
+            ativo: input.isActive,
+        }),
+    });
+
+    return mapStockItem(response);
 }
 
 export async function getCashOverview() {

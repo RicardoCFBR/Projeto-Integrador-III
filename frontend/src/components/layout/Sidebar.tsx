@@ -41,10 +41,13 @@ const financeItem = {
     icon: <PaymentsRoundedIcon />,
 };
 
-const bottomItems = [
-    { label: "Estoque", icon: <Inventory2RoundedIcon /> },
-    { label: "Configurações", icon: <SettingsRoundedIcon /> },
-];
+const stockItem = {
+    label: "Estoque",
+    to: "/estoque",
+    icon: <Inventory2RoundedIcon />,
+};
+
+const bottomItems = [{ label: "Configurações", icon: <SettingsRoundedIcon /> }];
 
 const linkSx = {
     minHeight: 48,
@@ -167,7 +170,11 @@ export function Sidebar() {
                             id={cashLabelId}
                         />
                         <IconButton
-                            aria-label={cashGroupExpanded ? "Recolher menu do caixa" : "Expandir menu do caixa"}
+                            aria-label={
+                                cashGroupExpanded
+                                    ? "Recolher menu do caixa"
+                                    : "Expandir menu do caixa"
+                            }
                             aria-controls="cash-group-children"
                             aria-expanded={isCashOpen ? cashGroupExpanded : false}
                             aria-labelledby={cashLabelId}
@@ -243,7 +250,9 @@ export function Sidebar() {
                                                 opacity: 1,
                                             },
                                             "&:hover": {
-                                                bgcolor: isCashOpen ? "rgba(255,255,255,0.75)" : "transparent",
+                                                bgcolor: isCashOpen
+                                                    ? "rgba(255,255,255,0.75)"
+                                                    : "transparent",
                                             },
                                         }}
                                         to={item.to}
@@ -309,6 +318,33 @@ export function Sidebar() {
                 >
                     <ListItemIcon>{financeItem.icon}</ListItemIcon>
                     <ListItemText primary={financeItem.label} />
+                </ListItemButton>
+
+                <ListItemButton
+                    component={NavLink}
+                    selected={location.pathname.startsWith(stockItem.to)}
+                    sx={{
+                        ...linkSx,
+                        color: location.pathname.startsWith(stockItem.to) ? "#1b58d8" : "#3e4d4f",
+                        "& .MuiListItemText-primary": {
+                            fontWeight: location.pathname.startsWith(stockItem.to) ? 700 : 500,
+                        },
+                        "&.Mui-selected": {
+                            bgcolor: "rgba(255,255,255,0.92)",
+                            boxShadow: "0 10px 22px rgba(45, 52, 51, 0.04)",
+                        },
+                        "&.Mui-selected:hover": {
+                            bgcolor: "rgba(255,255,255,0.92)",
+                        },
+                        "&:hover": {
+                            bgcolor: "rgba(255,255,255,0.75)",
+                            color: "primary.main",
+                        },
+                    }}
+                    to={stockItem.to}
+                >
+                    <ListItemIcon>{stockItem.icon}</ListItemIcon>
+                    <ListItemText primary={stockItem.label} />
                 </ListItemButton>
 
                 {bottomItems.map((item) => (

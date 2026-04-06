@@ -43,9 +43,23 @@ class ProdutoSerializer(serializers.ModelSerializer):
 
 
 class InsumoSerializer(serializers.ModelSerializer):
+    unidade_medida_display = serializers.CharField(
+        source="get_unidade_medida_display",
+        read_only=True,
+    )
+
     class Meta:
         model = Insumo
-        fields = "__all__"
+        fields = [
+            "id",
+            "nome",
+            "unidade_medida",
+            "unidade_medida_display",
+            "estoque_atual",
+            "estoque_minimo",
+            "ativo",
+            "criado_em",
+        ]
 
 
 class ComposicaoProdutoSerializer(serializers.ModelSerializer):
