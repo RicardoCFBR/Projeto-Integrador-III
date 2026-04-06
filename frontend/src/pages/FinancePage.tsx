@@ -1,51 +1,145 @@
+import { useEffect, useMemo, useState } from "react";
+
 import AttachMoneyRoundedIcon from "@mui/icons-material/AttachMoneyRounded";
 import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import InsightsRoundedIcon from "@mui/icons-material/InsightsRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
+import PointOfSaleRoundedIcon from "@mui/icons-material/PointOfSaleRounded";
+import RemoveCircleOutlineRoundedIcon from "@mui/icons-material/RemoveCircleOutlineRounded";
+import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import {
     Box,
     Button,
     Chip,
+    CircularProgress,
     Paper,
     Stack,
+    TextField,
     Typography,
 } from "@mui/material";
 
-const periodOptions = [
-    { value: "today", label: "Hoje" },
-    { value: "yesterday", label: "Ontem" },
-    { value: "week", label: "Últimos 7 dias" },
-    { value: "custom", label: "Período personalizado" },
+import {
+    getFinanceSummary,
+    type FinanceSummary,
+} from "../services/barControlApi";
+
+type FinancePeriod = "hoje" | "ontem" | "ultimos_7_dias" | "personalizado";
+
+const periodOptions: Array<{ value: FinancePeriod; label: string }> = [
+    { value: "hoje", label: "Hoje" },
+    { value: "ontem", label: "Ontem" },
+    { value: "ultimos_7_dias", label: "Últimos 7 dias" },
+    { value: "personalizado", label: "Período personalizado" },
 ];
 
-const previewCards = [
-    {
-        title: "Receita Consolidada",
-        value: "Em preparação",
-        description: "Vendas do caixa e comandas pagas no período selecionado.",
-        icon: <AttachMoneyRoundedIcon color="secondary" />,
-    },
-    {
-        title: "Formas de Pagamento",
-        value: "Em preparação",
-        description: "Separação entre dinheiro, Pix e cartão para análise financeira.",
-        icon: <PaymentsRoundedIcon color="secondary" />,
-    },
-    {
-        title: "Fechamentos de Caixa",
-        value: "Em preparação",
-        description: "Diferenças apuradas, sessões abertas e conferências encerradas.",
-        icon: <CalendarMonthRoundedIcon color="secondary" />,
-    },
-    {
-        title: "Indicadores Gerenciais",
-        value: "Em preparação",
-        description: "Ticket médio, volume de vendas e comportamento por período.",
-        icon: <InsightsRoundedIcon color="secondary" />,
-    },
-];
+const emptySummary: FinanceSummary = {
+    totalSold: "R$ 0,00",
+    totalSoldNumber: 0,
+    totalCash: "R$ 0,00",
+    totalCashNumber: 0,
+    totalPix: "R$ 0,00",
+    totalPixNumber: 0,
+    totalCard: "R$ 0,00",
+    totalCardNumber: 0,
+    totalWithdrawals: "R$ 0,00",
+    totalWithdrawalsNumber: 0,
+    totalSupplies: "R$ 0,00",
+    totalSuppliesNumber: 0,
+    averageTicket: "R$ 0,00",
+    averageTicketNumber: 0,
+    salesCount: 0,
+    closedSessionsCount: 0,
+    totalDifferences: "R$ 0,00",
+    totalDifferencesNumber: 0,
+};
 
 export function FinancePage() {
+    const [period, setPeriod] = useState<FinancePeriod>("hoje");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [summary, setSummary] = useState<FinanceSummary>(emptySummary);
+    const [loading, setLoading] = useState(true);
+    const [pageError, setPageError] = useState<string | null>(null);
+
+    const summaryCards = useMemo(
+        () => [
+            {
+                title: "Receita Consolidada",
+                value: summary.totalSold,
+                description: "Vendas no caixa e comandas pagas no período selecionado.",
+                icon: <AttachMoneyRoundedIcon color="secondary" />,
+            },
+            {
+                title: "Dinheiro",
+                value: summary.totalCash,
+                description: "Valor recebido em dinheiro.",
+                icon: <PointOfSaleRoundedIcon color="secondary" />,
+            },
+            {
+                title: "Pix",
+                value: summary.totalPix,
+                description: "Pagamentos registrados em Pix.",
+                icon: <PaymentsRoundedIcon color="secondary" />,
+            },
+            {
+                title: "Cartão",
+                value: summary.totalCard,
+                description: "Pagamentos processados em cartão.",
+                icon: <PaymentsRoundedIcon color="secondary" />,
+            },
+            {
+                title: "Sangrias",
+                value: summary.totalWithdrawals,
+                description: "Retiradas registradas no caixa.",
+                icon: <RemoveCircleOutlineRoundedIcon color="secondary" />,
+            },
+            {
+                title: "Suprimentos",
+                value: summary.totalSupplies,
+                description: "Entradas adicionais no caixa.",
+                icon: <TrendingUpRoundedIcon color="secondary" />,
+            },
+            {
+                title: "Ticket Médio",
+                value: summary.averageTicket,
+                description: "Média por venda concluída.",
+                icon: <InsightsRoundedIcon color="secondary" />,
+            },
+            {
+                title: "Fechamentos",
+                value: String(summary.closedSessionsCount),
+                description: `Diferença acumulada: ${summary.totalDifferences}`,
+                icon: <CalendarMonthRoundedIcon color="secondary" />,
+            },
+        ],
+        [summary],
+    );
+
+    async function loadSummary() {
+        try {
+            setLoading(true);
+            setPageError(null);
+            const response = await getFinanceSummary({
+                period,
+                startDate: period === "personalizado" ? startDate : undefined,
+                endDate: period === "personalizado" ? endDate : undefined,
+            });
+            setSummary(response);
+        } catch (requestError) {
+            setPageError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Não foi possível carregar o resumo financeiro.",
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        void loadSummary();
+    }, []);
+
     return (
         <Stack spacing={3}>
             <Paper
@@ -63,7 +157,7 @@ export function FinancePage() {
                         <Box>
                             <Typography variant="h4">Financeiro</Typography>
                             <Typography color="text.secondary">
-                                Área gerencial para consolidar vendas, caixa e resultados do período.
+                                Resumo gerencial com vendas, caixa e indicadores por período.
                             </Typography>
                         </Box>
                     </Stack>
@@ -75,75 +169,115 @@ export function FinancePage() {
                         justifyContent="space-between"
                     >
                         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                            {periodOptions.map((option, index) => (
+                            {periodOptions.map((option) => (
                                 <Chip
                                     key={option.value}
-                                    color={index === 0 ? "primary" : "default"}
+                                    color={period === option.value ? "primary" : "default"}
                                     label={option.label}
-                                    variant={index === 0 ? "filled" : "outlined"}
+                                    onClick={() => setPeriod(option.value)}
+                                    variant={period === option.value ? "filled" : "outlined"}
                                     sx={{ borderRadius: "999px", fontWeight: 800 }}
                                 />
                             ))}
                         </Stack>
 
-                        <Button disabled variant="contained">
-                            Aplicar filtros
-                        </Button>
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.25}>
+                            {period === "personalizado" ? (
+                                <>
+                                    <TextField
+                                        label="Data inicial"
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(event) => setStartDate(event.target.value)}
+                                        InputLabelProps={{ shrink: true }}
+                                        size="small"
+                                    />
+                                    <TextField
+                                        label="Data final"
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(event) => setEndDate(event.target.value)}
+                                        InputLabelProps={{ shrink: true }}
+                                        size="small"
+                                    />
+                                </>
+                            ) : null}
+
+                            <Button onClick={() => void loadSummary()} variant="contained">
+                                Aplicar filtros
+                            </Button>
+                        </Stack>
                     </Stack>
                 </Stack>
             </Paper>
 
-            <Box
-                sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                        xs: "1fr",
-                        md: "repeat(2, minmax(0, 1fr))",
-                    },
-                    gap: 2,
-                }}
-            >
-                {previewCards.map((card) => (
+            {pageError ? (
+                <Typography color="error" sx={{ fontWeight: 700 }}>
+                    {pageError}
+                </Typography>
+            ) : null}
+
+            {loading ? (
+                <Box sx={{ minHeight: "32vh", display: "grid", placeItems: "center" }}>
+                    <CircularProgress size={30} />
+                </Box>
+            ) : null}
+
+            {!loading ? (
+                <>
+                    <Box
+                        sx={{
+                            display: "grid",
+                            gridTemplateColumns: {
+                                xs: "1fr",
+                                md: "repeat(2, minmax(0, 1fr))",
+                            },
+                            gap: 2,
+                        }}
+                    >
+                        {summaryCards.map((card) => (
+                            <Paper
+                                elevation={0}
+                                key={card.title}
+                                sx={{
+                                    p: 3,
+                                    borderRadius: "12px",
+                                    bgcolor: "background.paper",
+                                    boxShadow: "0 12px 28px rgba(45, 52, 51, 0.05)",
+                                }}
+                            >
+                                <Stack spacing={1.5}>
+                                    {card.icon}
+                                    <Typography color="text.secondary" sx={{ fontSize: "0.82rem" }}>
+                                        {card.title}
+                                    </Typography>
+                                    <Typography variant="h5">{card.value}</Typography>
+                                    <Typography color="text.secondary">{card.description}</Typography>
+                                </Stack>
+                            </Paper>
+                        ))}
+                    </Box>
+
                     <Paper
                         elevation={0}
-                        key={card.title}
                         sx={{
-                            p: 3,
+                            p: { xs: 2.5, md: 3 },
                             borderRadius: "12px",
                             bgcolor: "background.paper",
                             boxShadow: "0 12px 28px rgba(45, 52, 51, 0.05)",
                         }}
                     >
-                        <Stack spacing={1.5}>
-                            {card.icon}
-                            <Typography color="text.secondary" sx={{ fontSize: "0.82rem" }}>
-                                {card.title}
+                        <Stack spacing={1.25}>
+                            <Typography variant="h5">Resumo Operacional</Typography>
+                            <Typography color="text.secondary">
+                                {summary.salesCount} vendas registradas no período. Os próximos passos
+                                desta área são a tabela analítica, detalhamento das movimentações e
+                                conferência dos fechamentos por sessão.
                             </Typography>
-                            <Typography variant="h5">{card.value}</Typography>
-                            <Typography color="text.secondary">{card.description}</Typography>
                         </Stack>
                     </Paper>
-                ))}
-            </Box>
-
-            <Paper
-                elevation={0}
-                sx={{
-                    p: { xs: 2.5, md: 3 },
-                    borderRadius: "12px",
-                    bgcolor: "background.paper",
-                    boxShadow: "0 12px 28px rgba(45, 52, 51, 0.05)",
-                }}
-            >
-                <Stack spacing={1.25}>
-                    <Typography variant="h5">Estrutura Inicial</Typography>
-                    <Typography color="text.secondary">
-                        Nesta primeira etapa, a aba financeira foi criada para validar navegação,
-                        layout e organização visual. Na próxima etapa entram os KPIs reais do
-                        período e o resumo consolidado por forma de pagamento.
-                    </Typography>
-                </Stack>
-            </Paper>
+                </>
+            ) : null}
         </Stack>
     );
 }

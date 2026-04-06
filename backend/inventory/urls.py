@@ -13,6 +13,7 @@ from .views import (
     ComandaViewSet,
     ComposicaoProdutoViewSet,
     DashboardSummaryView,
+    FinanceSummaryView,
     InsumoViewSet,
     ItemComandaViewSet,
     ProdutoViewSet,
@@ -34,6 +35,7 @@ urlpatterns = [
     path("caixa/vendas/", CashSaleCreateView.as_view(), name="cash-sales"),
     path("caixa/vendas/historico/", CashSaleHistoryView.as_view(), name="cash-sales-history"),
     path("caixa/vendas/<int:pk>/", CashSaleDetailView.as_view(), name="cash-sale-detail"),
+    path("financeiro/resumo/", FinanceSummaryView.as_view(), name="finance-summary"),
     path("dashboard/", DashboardSummaryView.as_view(), name="dashboard-summary"),
     path("", include(router.urls)),
 ]

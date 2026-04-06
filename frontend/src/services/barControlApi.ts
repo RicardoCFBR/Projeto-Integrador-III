@@ -130,6 +130,27 @@ export type CashOverview = {
     };
 };
 
+export type FinanceSummary = {
+    totalSold: string;
+    totalSoldNumber: number;
+    totalCash: string;
+    totalCashNumber: number;
+    totalPix: string;
+    totalPixNumber: number;
+    totalCard: string;
+    totalCardNumber: number;
+    totalWithdrawals: string;
+    totalWithdrawalsNumber: number;
+    totalSupplies: string;
+    totalSuppliesNumber: number;
+    averageTicket: string;
+    averageTicketNumber: number;
+    salesCount: number;
+    closedSessionsCount: number;
+    totalDifferences: string;
+    totalDifferencesNumber: number;
+};
+
 type ApiTabStatus = "aberta" | "encerrada";
 
 type ApiTabSummary = {
@@ -241,6 +262,21 @@ type ApiCashSale = {
     observacao: string;
     criada_em: string;
     itens: ApiCashSaleItem[];
+};
+
+type ApiFinanceSummary = {
+    resumo: {
+        total_vendido: string;
+        total_dinheiro: string;
+        total_pix: string;
+        total_cartao: string;
+        total_sangrias: string;
+        total_suprimentos: string;
+        ticket_medio: string;
+        vendas_count: number;
+        fechamentos_count: number;
+        total_diferencas: string;
+    };
 };
 
 function buildUrl(path: string) {
@@ -582,6 +618,38 @@ function mapCashOverview(overview: ApiCashOverview): CashOverview {
     };
 }
 
+function mapFinanceSummary(summary: ApiFinanceSummary): FinanceSummary {
+    const totalSoldNumber = parseCurrency(summary.resumo.total_vendido);
+    const totalCashNumber = parseCurrency(summary.resumo.total_dinheiro);
+    const totalPixNumber = parseCurrency(summary.resumo.total_pix);
+    const totalCardNumber = parseCurrency(summary.resumo.total_cartao);
+    const totalWithdrawalsNumber = parseCurrency(summary.resumo.total_sangrias);
+    const totalSuppliesNumber = parseCurrency(summary.resumo.total_suprimentos);
+    const averageTicketNumber = parseCurrency(summary.resumo.ticket_medio);
+    const totalDifferencesNumber = parseCurrency(summary.resumo.total_diferencas);
+
+    return {
+        totalSold: formatCurrency(totalSoldNumber),
+        totalSoldNumber,
+        totalCash: formatCurrency(totalCashNumber),
+        totalCashNumber,
+        totalPix: formatCurrency(totalPixNumber),
+        totalPixNumber,
+        totalCard: formatCurrency(totalCardNumber),
+        totalCardNumber,
+        totalWithdrawals: formatCurrency(totalWithdrawalsNumber),
+        totalWithdrawalsNumber,
+        totalSupplies: formatCurrency(totalSuppliesNumber),
+        totalSuppliesNumber,
+        averageTicket: formatCurrency(averageTicketNumber),
+        averageTicketNumber,
+        salesCount: summary.resumo.vendas_count,
+        closedSessionsCount: summary.resumo.fechamentos_count,
+        totalDifferences: formatCurrency(totalDifferencesNumber),
+        totalDifferencesNumber,
+    };
+}
+
 export async function listTabsMural() {
     const response = await request<ApiTabSummary[]>("/comandas/mural/");
     return response.map(mapTabSummary);
@@ -803,4 +871,31 @@ export async function listCashSalesHistory(input?: {
 export async function getCashSaleDetail(saleId: number) {
     const response = await request<ApiCashSale>(`/caixa/vendas/${saleId}/`);
     return mapCashSale(response);
+}
+
+export async function getFinanceSummary(input?: {
+    period?: "hoje" | "ontem" | "ultimos_7_dias" | "personalizado";
+    startDate?: string;
+    endDate?: string;
+}) {
+    const params = new URLSearchParams();
+
+    if (input?.period && input.period !== "personalizado") {
+        params.set("periodo", input.period);
+    }
+
+    if (input?.startDate) {
+        params.set("data_inicial", input.startDate);
+    }
+
+    if (input?.endDate) {
+        params.set("data_final", input.endDate);
+    }
+
+    const queryString = params.toString();
+    const response = await request<ApiFinanceSummary>(
+        `/financeiro/resumo/${queryString ? `?${queryString}` : ""}`,
+    );
+
+    return mapFinanceSummary(response);
 }

@@ -200,6 +200,28 @@ def cash_sale_detail_queryset():
     )
 
 
+def apply_date_filters(queryset, field_name, request):
+    periodo = request.query_params.get("periodo")
+    data_inicial = request.query_params.get("data_inicial")
+    data_final = request.query_params.get("data_final")
+    today = timezone.localdate()
+
+    if periodo == "hoje":
+        queryset = queryset.filter(**{f"{field_name}__date": today})
+    elif periodo == "ontem":
+        queryset = queryset.filter(**{f"{field_name}__date": today - timedelta(days=1)})
+    elif periodo == "ultimos_7_dias":
+        queryset = queryset.filter(**{f"{field_name}__date__gte": today - timedelta(days=6)})
+
+    if data_inicial:
+        queryset = queryset.filter(**{f"{field_name}__date__gte": data_inicial})
+
+    if data_final:
+        queryset = queryset.filter(**{f"{field_name}__date__lte": data_final})
+
+    return queryset
+
+
 class CategoriaProdutoViewSet(viewsets.ModelViewSet):
     queryset = CategoriaProduto.objects.all()
     serializer_class = CategoriaProdutoSerializer
@@ -476,6 +498,86 @@ class DashboardSummaryView(APIView):
         )
 
 
+class FinanceSummaryView(APIView):
+    def get(self, request):
+        vendas = apply_date_filters(VendaCaixa.objects.all(), "criada_em", request)
+        movimentacoes = apply_date_filters(
+            MovimentacaoCaixa.objects.all(), "criado_em", request
+        )
+        sessoes_fechadas = apply_date_filters(
+            SessaoCaixa.objects.filter(status=SessaoCaixa.Status.FECHADO),
+            "fechado_em",
+            request,
+        )
+
+        total_vendido = sum((venda.valor_total for venda in vendas), Decimal("0.00"))
+        total_dinheiro = sum(
+            (
+                venda.valor_total
+                for venda in vendas
+                if venda.forma_pagamento == VendaCaixa.FormaPagamento.DINHEIRO
+            ),
+            Decimal("0.00"),
+        )
+        total_pix = sum(
+            (
+                venda.valor_total
+                for venda in vendas
+                if venda.forma_pagamento == VendaCaixa.FormaPagamento.PIX
+            ),
+            Decimal("0.00"),
+        )
+        total_cartao = sum(
+            (
+                venda.valor_total
+                for venda in vendas
+                if venda.forma_pagamento == VendaCaixa.FormaPagamento.CARTAO
+            ),
+            Decimal("0.00"),
+        )
+        total_sangrias = sum(
+            (
+                movimento.valor
+                for movimento in movimentacoes
+                if movimento.tipo == MovimentacaoCaixa.Tipo.SANGRIA
+            ),
+            Decimal("0.00"),
+        )
+        total_suprimentos = sum(
+            (
+                movimento.valor
+                for movimento in movimentacoes
+                if movimento.tipo == MovimentacaoCaixa.Tipo.SUPRIMENTO
+            ),
+            Decimal("0.00"),
+        )
+        total_diferencas = sum(
+            (sessao.diferenca_total or Decimal("0.00") for sessao in sessoes_fechadas),
+            Decimal("0.00"),
+        )
+        vendas_count = vendas.count()
+        ticket_medio = (
+            (total_vendido / vendas_count) if vendas_count > 0 else Decimal("0.00")
+        )
+
+        return Response(
+            {
+                "resumo": {
+                    "total_vendido": total_vendido,
+                    "total_dinheiro": total_dinheiro,
+                    "total_pix": total_pix,
+                    "total_cartao": total_cartao,
+                    "total_sangrias": total_sangrias,
+                    "total_suprimentos": total_suprimentos,
+                    "ticket_medio": ticket_medio,
+                    "vendas_count": vendas_count,
+                    "fechamentos_count": sessoes_fechadas.count(),
+                    "total_diferencas": total_diferencas,
+                }
+            }
+        )
+
+
 class CashOverviewView(APIView):
     def get(self, request):
         sessao = get_open_cash_session()
@@ -719,27 +821,9 @@ class CashSaleCreateView(APIView):
 class CashSaleHistoryView(APIView):
     def get(self, request):
         queryset = cash_sale_detail_queryset()
-
-        periodo = request.query_params.get("periodo")
         codigo = request.query_params.get("codigo", "").strip()
         forma_pagamento = request.query_params.get("forma_pagamento", "").strip()
-        data_inicial = request.query_params.get("data_inicial")
-        data_final = request.query_params.get("data_final")
-
-        today = timezone.localdate()
-
-        if periodo == "hoje":
-            queryset = queryset.filter(criada_em__date=today)
-        elif periodo == "ontem":
-            queryset = queryset.filter(criada_em__date=today - timedelta(days=1))
-        elif periodo == "ultimos_7_dias":
-            queryset = queryset.filter(criada_em__date__gte=today - timedelta(days=6))
-
-        if data_inicial:
-            queryset = queryset.filter(criada_em__date__gte=data_inicial)
-
-        if data_final:
-            queryset = queryset.filter(criada_em__date__lte=data_final)
+        queryset = apply_date_filters(queryset, "criada_em", request)
 
         if codigo:
             queryset = queryset.filter(codigo__icontains=codigo)
