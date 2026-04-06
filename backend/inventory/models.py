@@ -298,6 +298,13 @@ class VendaCaixa(models.Model):
         on_delete=models.PROTECT,
         related_name="vendas",
     )
+    comanda = models.OneToOneField(
+        Comanda,
+        on_delete=models.PROTECT,
+        related_name="venda_caixa",
+        blank=True,
+        null=True,
+    )
     codigo = models.CharField(max_length=24, unique=True)
     status = models.CharField(
         max_length=12,

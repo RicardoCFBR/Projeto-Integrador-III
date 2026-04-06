@@ -11,6 +11,7 @@ import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
 import LockOpenRoundedIcon from "@mui/icons-material/LockOpenRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
+import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 import PrintRoundedIcon from "@mui/icons-material/PrintRounded";
 import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
@@ -21,9 +22,14 @@ import {
     Box,
     Button,
     Chip,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     Divider,
     IconButton,
     InputAdornment,
+    MenuItem,
     Paper,
     Stack,
     TextField,
@@ -31,13 +37,16 @@ import {
 } from "@mui/material";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { useCashSession } from "../contexts/CashSessionContext";
 import { useTabs } from "../contexts/TabsContext";
 import {
     addItemToTab,
+    type CashSalePaymentMethod,
     decrementTabItem,
     getTabDetail,
     incrementTabItem,
     listProducts,
+    payTab,
     type Product,
     type TabDetail,
 } from "../services/barControlApi";
@@ -75,6 +84,7 @@ export function TabDetailPage() {
     const navigate = useNavigate();
     const params = useParams<{ tabId?: string }>();
     const { createTab, refreshTabs, tabs, updateTabStatus } = useTabs();
+    const { refreshCashSession } = useCashSession();
     const isNewTab = params.tabId === "nova";
     const summaryTab = tabs.find((tab) => tab.id === params.tabId) ?? null;
 
@@ -88,6 +98,10 @@ export function TabDetailPage() {
     const [pageError, setPageError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("todos");
+    const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<CashSalePaymentMethod>("pix");
+    const [receivedAmountInput, setReceivedAmountInput] = useState("");
+    const [paymentObservation, setPaymentObservation] = useState("");
 
     useEffect(() => {
         let cancelled = false;
@@ -165,19 +179,22 @@ export function TabDetailPage() {
 
     const currentTab = detail ?? summaryTab;
     const isClosed = !isNewTab && currentTab?.status === "closed";
+    const isPaid = !isNewTab && Boolean(currentTab?.isPaid);
     const hasCustomerName = draftCustomerName.trim().length > 0;
     const customerNameLabel = isNewTab
         ? hasCustomerName
             ? draftCustomerName.trim()
             : "Inserir nome do cliente"
         : currentTab?.customerName ?? "Carregando...";
-    const statusLabel = isNewTab ? "Nova" : isClosed ? "Encerrada" : "Aberta";
+    const statusLabel = isNewTab ? "Nova" : isPaid ? "Paga" : isClosed ? "Encerrada" : "Aberta";
     const statusHint = isNewTab
         ? "Informe o nome do cliente e confirme para inserir a comanda no mural."
+        : isPaid
+          ? `Pagamento registrado${currentTab?.saleCode ? ` em ${currentTab.saleCode}` : ""}.`
         : isClosed
           ? "Esta comanda esta encerrada. Reabra para voltar a lancar itens."
           : "Comanda aberta para novos lancamentos.";
-    const interactionsDisabled = isNewTab || isClosed || detailLoading || actionLoading;
+    const interactionsDisabled = isNewTab || isClosed || isPaid || detailLoading || actionLoading;
     const totalValue = currentTab?.totalValue ?? "R$ 0,00";
     const items = detail?.items ?? [];
     const itemsCount = detail?.items.length ?? currentTab?.itemsCount ?? 0;
@@ -221,6 +238,15 @@ export function TabDetailPage() {
             }));
     }, [commandProducts, searchTerm, selectedCategory]);
 
+    const receivedAmountNumber = Number.parseFloat(
+        receivedAmountInput.replace(/[^\d,.-]/g, "").replace(",", "."),
+    );
+    const parsedReceivedAmount = Number.isNaN(receivedAmountNumber) ? 0 : receivedAmountNumber;
+    const changeAmountNumber =
+        paymentMethod === "cash"
+            ? Math.max(0, parsedReceivedAmount - (currentTab?.totalValueNumber ?? 0))
+            : 0;
+
     async function refreshCurrentTab(tabId: string) {
         const updatedDetail = await getTabDetail(tabId);
         setDetail(updatedDetail);
@@ -256,6 +282,14 @@ export function TabDetailPage() {
             return;
         }
 
+        if (!isClosed && !isPaid) {
+            setReceivedAmountInput("");
+            setPaymentObservation("");
+            setPaymentMethod("pix");
+            setPaymentDialogOpen(true);
+            return;
+        }
+
         try {
             setActionLoading(true);
             setPageError(null);
@@ -266,6 +300,35 @@ export function TabDetailPage() {
                 requestError instanceof Error
                     ? requestError.message
                     : "Nao foi possivel atualizar a comanda.",
+            );
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handlePayTab() {
+        if (!params.tabId || isNewTab || !currentTab) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setPageError(null);
+            const response = await payTab({
+                tabId: params.tabId,
+                paymentMethod,
+                receivedAmount: paymentMethod === "cash" ? parsedReceivedAmount : null,
+                observation: paymentObservation.trim(),
+            });
+            setDetail(response);
+            setPaymentDialogOpen(false);
+            await refreshTabs();
+            await refreshCashSession();
+        } catch (requestError) {
+            setPageError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Nao foi possivel registrar o pagamento da comanda.",
             );
         } finally {
             setActionLoading(false);
@@ -349,6 +412,7 @@ export function TabDetailPage() {
     }
 
     return (
+        <>
         <Stack spacing={3}>
             <Paper
                 elevation={0}
@@ -495,11 +559,13 @@ export function TabDetailPage() {
                                         sx={{
                                             fontSize: "0.78rem",
                                             fontWeight: 800,
-                                            color: isNewTab
-                                                ? "text.secondary"
-                                                : isClosed
-                                                  ? "text.secondary"
-                                                  : "primary.main",
+                                        color: isNewTab
+                                            ? "text.secondary"
+                                            : isPaid
+                                              ? "secondary.main"
+                                            : isClosed
+                                              ? "text.secondary"
+                                              : "primary.main",
                                         }}
                                     >
                                         Status: {statusLabel}
@@ -853,7 +919,9 @@ export function TabDetailPage() {
                             >
                                 {isNewTab
                                     ? "Defina o nome do cliente para inserir esta comanda no mural."
-                                    : isClosed
+                                    : isPaid
+                                      ? "Comanda paga. Consulte o historico de vendas para reimpressao."
+                                      : isClosed
                                       ? "Comanda encerrada. Reabra para adicionar novos itens."
                                       : "Adicione itens para atualizar o total."}
                             </Box>
@@ -890,12 +958,14 @@ export function TabDetailPage() {
 
                             <Button
                                 fullWidth
-                                disabled={actionLoading || (isNewTab && !hasCustomerName)}
+                                disabled={actionLoading || isPaid || (isNewTab && !hasCustomerName)}
                                 onClick={() => void handleToggleStatus()}
                                 size="large"
                                 startIcon={
                                     isNewTab ? (
                                         <CheckRoundedIcon />
+                                    ) : isPaid ? (
+                                        <ReceiptLongRoundedIcon />
                                     ) : isClosed ? (
                                         <LockOpenRoundedIcon />
                                     ) : (
@@ -906,11 +976,11 @@ export function TabDetailPage() {
                                     mt: 1,
                                     minHeight: 56,
                                     borderRadius: "10px",
-                                    background: isClosed && !isNewTab
+                                    background: (isClosed || isPaid) && !isNewTab
                                         ? "linear-gradient(135deg, #d9dedd 0%, #eff2f1 100%)"
                                         : "linear-gradient(135deg, #1c6d25 0%, #9df197 100%)",
-                                    color: isClosed && !isNewTab ? "#435150" : "#083f10",
-                                    boxShadow: isClosed && !isNewTab
+                                    color: (isClosed || isPaid) && !isNewTab ? "#435150" : "#083f10",
+                                    boxShadow: (isClosed || isPaid) && !isNewTab
                                         ? "0 14px 28px rgba(67, 81, 80, 0.10)"
                                         : "0 16px 32px rgba(28, 109, 37, 0.16)",
                                     "&.Mui-disabled": {
@@ -919,7 +989,7 @@ export function TabDetailPage() {
                                         color: "rgba(67, 81, 80, 0.6)",
                                     },
                                     "&:hover": {
-                                        background: isClosed && !isNewTab
+                                        background: (isClosed || isPaid) && !isNewTab
                                             ? "linear-gradient(135deg, #cfd5d3 0%, #e7ebea 100%)"
                                             : "linear-gradient(135deg, #16571d 0%, #88df82 100%)",
                                     },
@@ -928,6 +998,8 @@ export function TabDetailPage() {
                             >
                                 {isNewTab
                                     ? "Abrir Comanda"
+                                    : isPaid
+                                      ? "Pagamento Registrado"
                                     : isClosed
                                       ? "Reabrir Comanda"
                                       : "Fechar Comanda / Ir para Pagamento"}
@@ -941,5 +1013,101 @@ export function TabDetailPage() {
                 </Paper>
             </Box>
         </Stack>
+
+        <Dialog
+            fullWidth
+            maxWidth="sm"
+            onClose={() => setPaymentDialogOpen(false)}
+            open={paymentDialogOpen}
+        >
+            <DialogTitle>Pagamento da Comanda</DialogTitle>
+            <DialogContent>
+                <Stack spacing={2.5} sx={{ pt: 1 }}>
+                    <Typography color="text.secondary">
+                        Confirme a forma de pagamento para registrar esta comanda no caixa.
+                    </Typography>
+
+                    <Paper elevation={0} sx={{ p: 2, borderRadius: "12px", bgcolor: "#eef3f1" }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography color="text.secondary">Total da comanda</Typography>
+                            <Typography variant="h6">{totalValue}</Typography>
+                        </Stack>
+                    </Paper>
+
+                    <TextField
+                        select
+                        label="Forma de pagamento"
+                        value={paymentMethod}
+                        onChange={(event) =>
+                            setPaymentMethod(event.target.value as CashSalePaymentMethod)
+                        }
+                    >
+                        <MenuItem value="pix">Pix</MenuItem>
+                        <MenuItem value="card">Cartão</MenuItem>
+                        <MenuItem value="cash">Dinheiro</MenuItem>
+                    </TextField>
+
+                    {paymentMethod === "cash" ? (
+                        <>
+                            <TextField
+                                label="Valor recebido"
+                                placeholder="0,00"
+                                value={receivedAmountInput}
+                                onChange={(event) => setReceivedAmountInput(event.target.value)}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Typography sx={{ fontWeight: 800, color: "primary.main" }}>
+                                                R$
+                                            </Typography>
+                                        </InputAdornment>
+                                    ),
+                                }}
+                            />
+                            <Paper
+                                elevation={0}
+                                sx={{ p: 2, borderRadius: "12px", bgcolor: "#f7f9f8" }}
+                            >
+                                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                    <Typography color="text.secondary">Troco</Typography>
+                                    <Typography sx={{ fontWeight: 800 }}>
+                                        {new Intl.NumberFormat("pt-BR", {
+                                            style: "currency",
+                                            currency: "BRL",
+                                        }).format(changeAmountNumber)}
+                                    </Typography>
+                                </Stack>
+                            </Paper>
+                        </>
+                    ) : null}
+
+                    <TextField
+                        label="Observação"
+                        multiline
+                        minRows={2}
+                        placeholder="Observação do pagamento"
+                        value={paymentObservation}
+                        onChange={(event) => setPaymentObservation(event.target.value)}
+                    />
+                </Stack>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                <Button disabled={actionLoading} onClick={() => setPaymentDialogOpen(false)}>
+                    Cancelar
+                </Button>
+                <Button
+                    disabled={
+                        actionLoading ||
+                        items.length === 0 ||
+                        (paymentMethod === "cash" && parsedReceivedAmount < (currentTab?.totalValueNumber ?? 0))
+                    }
+                    onClick={() => void handlePayTab()}
+                    variant="contained"
+                >
+                    Confirmar Pagamento
+                </Button>
+            </DialogActions>
+        </Dialog>
+        </>
     );
 }

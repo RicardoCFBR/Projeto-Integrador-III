@@ -27,6 +27,7 @@ from .serializers import (
     ComandaAberturaSerializer,
     ComandaDetailSerializer,
     ComandaMuralSerializer,
+    ComandaPagamentoSerializer,
     ComandaSerializer,
     ComposicaoProdutoSerializer,
     InsumoSerializer,
@@ -53,7 +54,7 @@ def build_total_expression():
 
 def annotated_comandas_queryset():
     total_expression = build_total_expression()
-    return Comanda.objects.annotate(
+    return Comanda.objects.select_related("venda_caixa").annotate(
         total_parcial=Coalesce(
             Sum(total_expression),
             0,
@@ -68,7 +69,8 @@ def comanda_detail_queryset():
         Prefetch(
             "itens",
             queryset=ItemComanda.objects.select_related("produto").all(),
-        )
+        ),
+        "venda_caixa",
     )
 
 
@@ -190,7 +192,7 @@ def calculate_cash_overview_summary(sessao):
 
 
 def cash_sale_detail_queryset():
-    return VendaCaixa.objects.select_related("sessao_caixa").prefetch_related(
+    return VendaCaixa.objects.select_related("sessao_caixa", "comanda").prefetch_related(
         Prefetch(
             "itens",
             queryset=ItemVendaCaixa.objects.select_related("produto").all(),
@@ -283,6 +285,11 @@ class ComandaViewSet(viewsets.ModelViewSet):
                 {"detail": "A comanda ja esta aberta."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if hasattr(comanda, "venda_caixa"):
+            return Response(
+                {"detail": "A comanda ja foi paga e nao pode ser reaberta."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         comanda.status = Comanda.Status.ABERTA
         comanda.encerrada_em = None
@@ -319,6 +326,76 @@ class ComandaViewSet(viewsets.ModelViewSet):
             item.save(update_fields=["quantidade", "preco_unitario"])
 
         response_serializer = ItemComandaSerializer(item)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="pagar")
+    def pagar(self, request, pk=None):
+        comanda = self.get_object()
+        sessao = get_open_cash_session()
+
+        if sessao is None:
+            return Response(
+                {"detail": "Abra o caixa antes de registrar o pagamento da comanda."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if hasattr(comanda, "venda_caixa"):
+            return Response(
+                {"detail": "Esta comanda ja possui um pagamento registrado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        itens = list(comanda.itens.select_related("produto").all())
+        if not itens:
+            return Response(
+                {"detail": "Adicione pelo menos um item antes de pagar a comanda."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ComandaPagamentoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        valor_total = sum((item.valor_total for item in itens), Decimal("0.00"))
+        valor_recebido = serializer.validated_data.get("valor_recebido")
+        troco = Decimal("0.00")
+
+        if serializer.validated_data["forma_pagamento"] == VendaCaixa.FormaPagamento.DINHEIRO:
+            if valor_recebido < valor_total:
+                return Response(
+                    {"detail": "O valor recebido nao pode ser menor que o total da comanda."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            troco = valor_recebido - valor_total
+        else:
+            valor_recebido = None
+
+        with transaction.atomic():
+            venda = VendaCaixa.objects.create(
+                sessao_caixa=sessao,
+                comanda=comanda,
+                codigo=generate_venda_caixa_codigo(sessao),
+                forma_pagamento=serializer.validated_data["forma_pagamento"],
+                valor_total=valor_total,
+                valor_recebido=valor_recebido,
+                troco=troco,
+                observacao=serializer.validated_data.get("observacao", ""),
+            )
+            ItemVendaCaixa.objects.bulk_create(
+                [
+                    ItemVendaCaixa(
+                        venda=venda,
+                        produto=item.produto,
+                        quantidade=item.quantidade,
+                        preco_unitario=item.preco_unitario,
+                    )
+                    for item in itens
+                ]
+            )
+            comanda.status = Comanda.Status.ENCERRADA
+            comanda.encerrada_em = timezone.now()
+            comanda.save(update_fields=["status", "encerrada_em"])
+
+        response_serializer = ComandaDetailSerializer(comanda_detail_queryset().get(pk=comanda.pk))
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 

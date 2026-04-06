@@ -15,6 +15,9 @@ export type TabSummary = {
     itemsCount: number;
     openedAt: string;
     closedAt: string | null;
+    isPaid: boolean;
+    saleCode: string | null;
+    saleId: number | null;
 };
 
 export type TabItem = {
@@ -138,6 +141,9 @@ type ApiTabSummary = {
     encerrada_em: string | null;
     total_parcial: string;
     itens_count: number;
+    paga: boolean;
+    venda_codigo: string | null;
+    venda_caixa_id: number | null;
 };
 
 type ApiTabDetail = ApiTabSummary & {
@@ -271,6 +277,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
                 errorMessage = errorBody.pix_conferido[0];
             } else if (typeof errorBody.cartao_conferido?.[0] === "string") {
                 errorMessage = errorBody.cartao_conferido[0];
+            } else if (typeof errorBody.valor_recebido?.[0] === "string") {
+                errorMessage = errorBody.valor_recebido[0];
             }
         } catch {
             errorMessage = `Erro HTTP ${response.status}`;
@@ -350,6 +358,9 @@ function mapTabSummary(tab: ApiTabSummary): TabSummary {
         itemsCount: tab.itens_count,
         openedAt: tab.aberta_em,
         closedAt: tab.encerrada_em,
+        isPaid: tab.paga,
+        saleCode: tab.venda_codigo,
+        saleId: tab.venda_caixa_id,
     };
 }
 
@@ -594,6 +605,34 @@ export async function updateTabStatus(tabId: string, status: TabStatus) {
     const response = await request<ApiTabDetail>(`/comandas/${tabId}/${path}/`, {
         method: "POST",
     });
+    return mapTabDetail(response);
+}
+
+export async function payTab(input: {
+    tabId: string;
+    paymentMethod: CashSalePaymentMethod;
+    receivedAmount?: number | null;
+    observation?: string;
+}) {
+    const paymentMethod =
+        input.paymentMethod === "cash"
+            ? "dinheiro"
+            : input.paymentMethod === "pix"
+              ? "pix"
+              : "cartao";
+
+    const response = await request<ApiTabDetail>(`/comandas/${input.tabId}/pagar/`, {
+        method: "POST",
+        body: JSON.stringify({
+            forma_pagamento: paymentMethod,
+            valor_recebido:
+                input.receivedAmount === undefined || input.receivedAmount === null
+                    ? null
+                    : input.receivedAmount.toFixed(2),
+            observacao: input.observation ?? "",
+        }),
+    });
+
     return mapTabDetail(response);
 }
 

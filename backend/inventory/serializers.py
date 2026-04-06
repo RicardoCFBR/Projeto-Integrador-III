@@ -116,6 +116,18 @@ class ComandaAberturaSerializer(serializers.Serializer):
 class ComandaMuralSerializer(serializers.ModelSerializer):
     total_parcial = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     itens_count = serializers.IntegerField(read_only=True)
+    paga = serializers.SerializerMethodField()
+    venda_codigo = serializers.SerializerMethodField()
+    venda_caixa_id = serializers.SerializerMethodField()
+
+    def get_paga(self, obj):
+        return hasattr(obj, "venda_caixa")
+
+    def get_venda_codigo(self, obj):
+        return obj.venda_caixa.codigo if hasattr(obj, "venda_caixa") else None
+
+    def get_venda_caixa_id(self, obj):
+        return obj.venda_caixa.id if hasattr(obj, "venda_caixa") else None
 
     class Meta:
         model = Comanda
@@ -128,6 +140,9 @@ class ComandaMuralSerializer(serializers.ModelSerializer):
             "encerrada_em",
             "total_parcial",
             "itens_count",
+            "paga",
+            "venda_codigo",
+            "venda_caixa_id",
         ]
 
 
@@ -135,6 +150,18 @@ class ComandaDetailSerializer(serializers.ModelSerializer):
     itens = ItemComandaSerializer(many=True, read_only=True)
     total_parcial = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     itens_count = serializers.IntegerField(read_only=True)
+    paga = serializers.SerializerMethodField()
+    venda_codigo = serializers.SerializerMethodField()
+    venda_caixa_id = serializers.SerializerMethodField()
+
+    def get_paga(self, obj):
+        return hasattr(obj, "venda_caixa")
+
+    def get_venda_codigo(self, obj):
+        return obj.venda_caixa.codigo if hasattr(obj, "venda_caixa") else None
+
+    def get_venda_caixa_id(self, obj):
+        return obj.venda_caixa.id if hasattr(obj, "venda_caixa") else None
 
     class Meta:
         model = Comanda
@@ -148,6 +175,9 @@ class ComandaDetailSerializer(serializers.ModelSerializer):
             "total_parcial",
             "itens_count",
             "itens",
+            "paga",
+            "venda_codigo",
+            "venda_caixa_id",
         ]
 
 
@@ -264,6 +294,8 @@ class VendaCaixaSerializer(serializers.ModelSerializer):
     )
     status_label = serializers.CharField(source="get_status_display", read_only=True)
     itens = ItemVendaCaixaSerializer(many=True, read_only=True)
+    comanda_id = serializers.IntegerField(source="comanda.id", read_only=True)
+    comanda_codigo = serializers.CharField(source="comanda.codigo", read_only=True)
 
     class Meta:
         model = VendaCaixa
@@ -280,6 +312,8 @@ class VendaCaixaSerializer(serializers.ModelSerializer):
             "observacao",
             "criada_em",
             "itens",
+            "comanda_id",
+            "comanda_codigo",
         ]
 
 
@@ -309,6 +343,29 @@ class VendaCaixaCreateSerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError("Adicione pelo menos um item na venda.")
         return value
+
+    def validate(self, attrs):
+        forma_pagamento = attrs["forma_pagamento"]
+        valor_recebido = attrs.get("valor_recebido")
+
+        if forma_pagamento == VendaCaixa.FormaPagamento.DINHEIRO and valor_recebido is None:
+            raise serializers.ValidationError(
+                {"valor_recebido": ["Informe o valor recebido para pagamentos em dinheiro."]}
+            )
+
+        return attrs
+
+
+class ComandaPagamentoSerializer(serializers.Serializer):
+    forma_pagamento = serializers.ChoiceField(choices=VendaCaixa.FormaPagamento.choices)
+    valor_recebido = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+        required=False,
+        allow_null=True,
+    )
+    observacao = serializers.CharField(max_length=180, required=False, allow_blank=True)
 
     def validate(self, attrs):
         forma_pagamento = attrs["forma_pagamento"]
