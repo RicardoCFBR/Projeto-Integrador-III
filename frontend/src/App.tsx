@@ -17,6 +17,7 @@ import { TabsProvider } from "./contexts/TabsContext";
 import { DashboardPage } from "./pages/DashboardPage";
 import { CashierPage } from "./pages/CashierPage";
 import { CashierOverviewPage } from "./pages/CashierOverviewPage";
+import { FinancePage } from "./pages/FinancePage";
 import { SalesHistoryPage } from "./pages/SalesHistoryPage";
 import { TabDetailPage } from "./pages/TabDetailPage";
 import { TabsPage } from "./pages/TabsPage";
@@ -150,6 +151,7 @@ export default function App() {
                                         path="/comandas/:tabId"
                                     />
                                     <Route element={<CashierOverviewPage />} path="/caixa" />
+                                    <Route element={<FinancePage />} path="/financeiro" />
                                     <Route element={<SalesHistoryPage />} path="/historico-vendas" />
                                     <Route
                                         element={

@@ -35,11 +35,26 @@ const historyItem = {
     icon: <ReceiptLongRoundedIcon />,
 };
 
+const financeItem = {
+    label: "Financeiro",
+    to: "/financeiro",
+    icon: <PaymentsRoundedIcon />,
+};
+
 const bottomItems = [
     { label: "Estoque", icon: <Inventory2RoundedIcon /> },
-    { label: "Financeiro", icon: <PaymentsRoundedIcon /> },
     { label: "Configurações", icon: <SettingsRoundedIcon /> },
 ];
+
+const linkSx = {
+    minHeight: 48,
+    px: 1.75,
+    borderRadius: "14px",
+    "& .MuiListItemIcon-root": {
+        color: "inherit",
+        minWidth: 36,
+    },
+};
 
 export function Sidebar() {
     const location = useLocation();
@@ -71,13 +86,7 @@ export function Sidebar() {
                 background: "linear-gradient(180deg, #f7fbf9 0%, #eef6f2 100%)",
             }}
         >
-            <Box
-                sx={{
-                    mb: 4,
-                    display: "flex",
-                    justifyContent: "center",
-                }}
-            >
+            <Box sx={{ mb: 4, display: "flex", justifyContent: "center" }}>
                 <Box
                     component="img"
                     alt="BarControl Gestão de Bar e Mercearia"
@@ -101,14 +110,8 @@ export function Sidebar() {
                             key={item.label}
                             selected={selected}
                             sx={{
-                                minHeight: 48,
-                                px: 1.75,
-                                borderRadius: "14px",
+                                ...linkSx,
                                 color: selected ? "#1b58d8" : "#3e4d4f",
-                                "& .MuiListItemIcon-root": {
-                                    color: "inherit",
-                                    minWidth: 36,
-                                },
                                 "& .MuiListItemText-primary": {
                                     fontWeight: selected ? 700 : 500,
                                 },
@@ -137,14 +140,8 @@ export function Sidebar() {
                         onClick={() => navigate("/caixa")}
                         selected={cashGroupSelected || cashGroupExpanded}
                         sx={{
-                            minHeight: 48,
-                            px: 1.75,
-                            borderRadius: "14px",
+                            ...linkSx,
                             color: cashGroupSelected || cashGroupExpanded ? "#1b58d8" : "#3e4d4f",
-                            "& .MuiListItemIcon-root": {
-                                color: "inherit",
-                                minWidth: 36,
-                            },
                             "& .MuiListItemText-primary": {
                                 fontWeight: cashGroupSelected || cashGroupExpanded ? 700 : 500,
                             },
@@ -170,11 +167,7 @@ export function Sidebar() {
                             id={cashLabelId}
                         />
                         <IconButton
-                            aria-label={
-                                cashGroupExpanded
-                                    ? "Recolher menu do caixa"
-                                    : "Expandir menu do caixa"
-                            }
+                            aria-label={cashGroupExpanded ? "Recolher menu do caixa" : "Expandir menu do caixa"}
                             aria-controls="cash-group-children"
                             aria-expanded={isCashOpen ? cashGroupExpanded : false}
                             aria-labelledby={cashLabelId}
@@ -186,7 +179,6 @@ export function Sidebar() {
                                 if (!isCashOpen) {
                                     return;
                                 }
-
                                 setCashGroupExpanded((currentValue) => !currentValue);
                             }}
                             sx={{
@@ -207,9 +199,7 @@ export function Sidebar() {
 
                     <Box
                         id="cash-group-children"
-                        sx={{
-                            display: isCashOpen && cashGroupExpanded ? "block" : "none",
-                        }}
+                        sx={{ display: isCashOpen && cashGroupExpanded ? "block" : "none" }}
                     >
                         <Stack spacing={0.5} sx={{ mt: 0.5, pl: 1.5 }}>
                             {cashChildren.map((item) => {
@@ -230,12 +220,11 @@ export function Sidebar() {
                                             pl: 2,
                                             pr: 1.25,
                                             borderRadius: "12px",
-                                            color:
-                                                !isCashOpen
-                                                    ? "rgba(62, 77, 79, 0.42)"
-                                                    : selected
-                                                      ? "#1b58d8"
-                                                      : "#526163",
+                                            color: !isCashOpen
+                                                ? "rgba(62, 77, 79, 0.42)"
+                                                : selected
+                                                  ? "#1b58d8"
+                                                  : "#526163",
                                             "& .MuiListItemIcon-root": {
                                                 color: "inherit",
                                                 minWidth: 32,
@@ -254,9 +243,7 @@ export function Sidebar() {
                                                 opacity: 1,
                                             },
                                             "&:hover": {
-                                                bgcolor: isCashOpen
-                                                    ? "rgba(255,255,255,0.75)"
-                                                    : "transparent",
+                                                bgcolor: isCashOpen ? "rgba(255,255,255,0.75)" : "transparent",
                                             },
                                         }}
                                         to={item.to}
@@ -274,14 +261,8 @@ export function Sidebar() {
                     component={NavLink}
                     selected={location.pathname.startsWith(historyItem.to)}
                     sx={{
-                        minHeight: 48,
-                        px: 1.75,
-                        borderRadius: "14px",
+                        ...linkSx,
                         color: location.pathname.startsWith(historyItem.to) ? "#1b58d8" : "#3e4d4f",
-                        "& .MuiListItemIcon-root": {
-                            color: "inherit",
-                            minWidth: 36,
-                        },
                         "& .MuiListItemText-primary": {
                             fontWeight: location.pathname.startsWith(historyItem.to) ? 700 : 500,
                         },
@@ -303,6 +284,33 @@ export function Sidebar() {
                     <ListItemText primary={historyItem.label} />
                 </ListItemButton>
 
+                <ListItemButton
+                    component={NavLink}
+                    selected={location.pathname.startsWith(financeItem.to)}
+                    sx={{
+                        ...linkSx,
+                        color: location.pathname.startsWith(financeItem.to) ? "#1b58d8" : "#3e4d4f",
+                        "& .MuiListItemText-primary": {
+                            fontWeight: location.pathname.startsWith(financeItem.to) ? 700 : 500,
+                        },
+                        "&.Mui-selected": {
+                            bgcolor: "rgba(255,255,255,0.92)",
+                            boxShadow: "0 10px 22px rgba(45, 52, 51, 0.04)",
+                        },
+                        "&.Mui-selected:hover": {
+                            bgcolor: "rgba(255,255,255,0.92)",
+                        },
+                        "&:hover": {
+                            bgcolor: "rgba(255,255,255,0.75)",
+                            color: "primary.main",
+                        },
+                    }}
+                    to={financeItem.to}
+                >
+                    <ListItemIcon>{financeItem.icon}</ListItemIcon>
+                    <ListItemText primary={financeItem.label} />
+                </ListItemButton>
+
                 {bottomItems.map((item) => (
                     <Paper
                         elevation={0}
@@ -314,12 +322,7 @@ export function Sidebar() {
                         }}
                     >
                         <ListItemButton disabled sx={{ minHeight: 48, px: 1.75 }}>
-                            <ListItemIcon
-                                sx={{
-                                    minWidth: 36,
-                                    color: "text.secondary",
-                                }}
-                            >
+                            <ListItemIcon sx={{ minWidth: 36, color: "text.secondary" }}>
                                 {item.icon}
                             </ListItemIcon>
                             <ListItemText primary={item.label} />
