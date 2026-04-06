@@ -578,6 +578,57 @@ class FinanceSummaryView(APIView):
         )
 
 
+class FinanceOperationsView(APIView):
+    def get(self, request):
+        vendas = apply_date_filters(
+            VendaCaixa.objects.select_related("comanda"),
+            "criada_em",
+            request,
+        )
+        movimentacoes = apply_date_filters(
+            MovimentacaoCaixa.objects.select_related("sessao_caixa"),
+            "criado_em",
+            request,
+        )
+
+        operacoes = []
+
+        for venda in vendas:
+            if venda.comanda_id and venda.comanda is not None:
+                descricao = f"Pagamento da comanda: {venda.comanda.nome_cliente}"
+                identificacao = venda.get_forma_pagamento_display()
+            else:
+                descricao = "Venda no caixa"
+                identificacao = venda.get_forma_pagamento_display()
+
+            operacoes.append(
+                {
+                    "tipo": "venda",
+                    "codigo": venda.codigo,
+                    "descricao": descricao,
+                    "identificacao": identificacao,
+                    "valor": venda.valor_total,
+                    "criado_em": venda.criada_em,
+                }
+            )
+
+        for movimentacao in movimentacoes:
+            operacoes.append(
+                {
+                    "tipo": "movimentacao",
+                    "codigo": movimentacao.codigo,
+                    "descricao": movimentacao.descricao,
+                    "identificacao": movimentacao.get_tipo_display(),
+                    "valor": movimentacao.valor,
+                    "criado_em": movimentacao.criado_em,
+                }
+            )
+
+        operacoes.sort(key=lambda item: item["criado_em"], reverse=True)
+
+        return Response({"operacoes": operacoes})
+
+
 class CashOverviewView(APIView):
     def get(self, request):
         sessao = get_open_cash_session()

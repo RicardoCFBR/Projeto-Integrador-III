@@ -151,6 +151,22 @@ export type FinanceSummary = {
     totalDifferencesNumber: number;
 };
 
+export type FinanceOperationType = "sale" | "movement";
+
+export type FinanceOperation = {
+    id: string;
+    type: FinanceOperationType;
+    typeLabel: string;
+    code: string;
+    description: string;
+    identification: string;
+    value: string;
+    valueNumber: number;
+    createdAt: string;
+    dateLabel: string;
+    timeLabel: string;
+};
+
 type ApiTabStatus = "aberta" | "encerrada";
 
 type ApiTabSummary = {
@@ -277,6 +293,19 @@ type ApiFinanceSummary = {
         fechamentos_count: number;
         total_diferencas: string;
     };
+};
+
+type ApiFinanceOperation = {
+    tipo: "venda" | "movimentacao";
+    codigo: string;
+    descricao: string;
+    identificacao: string;
+    valor: string;
+    criado_em: string;
+};
+
+type ApiFinanceOperations = {
+    operacoes: ApiFinanceOperation[];
 };
 
 function buildUrl(path: string) {
@@ -650,6 +679,28 @@ function mapFinanceSummary(summary: ApiFinanceSummary): FinanceSummary {
     };
 }
 
+function mapFinanceOperation(operation: ApiFinanceOperation): FinanceOperation {
+    const valueNumber = parseCurrency(operation.valor);
+    const createdAt = new Date(operation.criado_em);
+
+    return {
+        id: `${operation.tipo}-${operation.codigo}`,
+        type: operation.tipo === "venda" ? "sale" : "movement",
+        typeLabel: operation.tipo === "venda" ? "Venda" : "Movimentação",
+        code: operation.codigo,
+        description: operation.descricao,
+        identification: operation.identificacao,
+        value: formatCurrency(valueNumber),
+        valueNumber,
+        createdAt: operation.criado_em,
+        dateLabel: createdAt.toLocaleDateString("pt-BR"),
+        timeLabel: createdAt.toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+        }),
+    };
+}
+
 export async function listTabsMural() {
     const response = await request<ApiTabSummary[]>("/comandas/mural/");
     return response.map(mapTabSummary);
@@ -898,4 +949,31 @@ export async function getFinanceSummary(input?: {
     );
 
     return mapFinanceSummary(response);
+}
+
+export async function getFinanceOperations(input?: {
+    period?: "hoje" | "ontem" | "ultimos_7_dias" | "personalizado";
+    startDate?: string;
+    endDate?: string;
+}) {
+    const params = new URLSearchParams();
+
+    if (input?.period && input.period !== "personalizado") {
+        params.set("periodo", input.period);
+    }
+
+    if (input?.startDate) {
+        params.set("data_inicial", input.startDate);
+    }
+
+    if (input?.endDate) {
+        params.set("data_final", input.endDate);
+    }
+
+    const queryString = params.toString();
+    const response = await request<ApiFinanceOperations>(
+        `/financeiro/operacoes/${queryString ? `?${queryString}` : ""}`,
+    );
+
+    return response.operacoes.map(mapFinanceOperation);
 }

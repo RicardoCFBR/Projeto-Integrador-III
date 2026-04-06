@@ -14,22 +14,37 @@ import {
     CircularProgress,
     Paper,
     Stack,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
     TextField,
     Typography,
 } from "@mui/material";
 
 import {
+    getFinanceOperations,
     getFinanceSummary,
+    type FinanceOperation,
     type FinanceSummary,
 } from "../services/barControlApi";
 
 type FinancePeriod = "hoje" | "ontem" | "ultimos_7_dias" | "personalizado";
+type FinanceOperationView = "all" | "sales" | "movements";
 
 const periodOptions: Array<{ value: FinancePeriod; label: string }> = [
     { value: "hoje", label: "Hoje" },
     { value: "ontem", label: "Ontem" },
     { value: "ultimos_7_dias", label: "Últimos 7 dias" },
     { value: "personalizado", label: "Período personalizado" },
+];
+
+const operationViewOptions: Array<{ value: FinanceOperationView; label: string }> = [
+    { value: "all", label: "Tudo" },
+    { value: "sales", label: "Vendas" },
+    { value: "movements", label: "Movimentações" },
 ];
 
 const emptySummary: FinanceSummary = {
@@ -58,6 +73,8 @@ export function FinancePage() {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [summary, setSummary] = useState<FinanceSummary>(emptySummary);
+    const [operations, setOperations] = useState<FinanceOperation[]>([]);
+    const [operationView, setOperationView] = useState<FinanceOperationView>("all");
     const [loading, setLoading] = useState(true);
     const [pageError, setPageError] = useState<string | null>(null);
 
@@ -115,21 +132,40 @@ export function FinancePage() {
         [summary],
     );
 
-    async function loadSummary() {
+    const filteredOperations = useMemo(() => {
+        if (operationView === "sales") {
+            return operations.filter((operation) => operation.type === "sale");
+        }
+
+        if (operationView === "movements") {
+            return operations.filter((operation) => operation.type === "movement");
+        }
+
+        return operations;
+    }, [operationView, operations]);
+
+    async function loadFinanceData() {
         try {
             setLoading(true);
             setPageError(null);
-            const response = await getFinanceSummary({
+            const filterInput = {
                 period,
                 startDate: period === "personalizado" ? startDate : undefined,
                 endDate: period === "personalizado" ? endDate : undefined,
-            });
-            setSummary(response);
+            } as const;
+
+            const [summaryResponse, operationsResponse] = await Promise.all([
+                getFinanceSummary(filterInput),
+                getFinanceOperations(filterInput),
+            ]);
+
+            setSummary(summaryResponse);
+            setOperations(operationsResponse);
         } catch (requestError) {
             setPageError(
                 requestError instanceof Error
                     ? requestError.message
-                    : "Não foi possível carregar o resumo financeiro.",
+                    : "Não foi possível carregar os dados financeiros.",
             );
         } finally {
             setLoading(false);
@@ -137,7 +173,7 @@ export function FinancePage() {
     }
 
     useEffect(() => {
-        void loadSummary();
+        void loadFinanceData();
     }, []);
 
     return (
@@ -203,7 +239,7 @@ export function FinancePage() {
                                 </>
                             ) : null}
 
-                            <Button onClick={() => void loadSummary()} variant="contained">
+                            <Button onClick={() => void loadFinanceData()} variant="contained">
                                 Aplicar filtros
                             </Button>
                         </Stack>
@@ -231,6 +267,7 @@ export function FinancePage() {
                             gridTemplateColumns: {
                                 xs: "1fr",
                                 md: "repeat(2, minmax(0, 1fr))",
+                                lg: "repeat(4, minmax(0, 1fr))",
                             },
                             gap: 2,
                         }}
@@ -267,13 +304,82 @@ export function FinancePage() {
                             boxShadow: "0 12px 28px rgba(45, 52, 51, 0.05)",
                         }}
                     >
-                        <Stack spacing={1.25}>
-                            <Typography variant="h5">Resumo Operacional</Typography>
-                            <Typography color="text.secondary">
-                                {summary.salesCount} vendas registradas no período. Os próximos passos
-                                desta área são a tabela analítica, detalhamento das movimentações e
-                                conferência dos fechamentos por sessão.
-                            </Typography>
+                        <Stack spacing={2}>
+                            <Stack
+                                direction={{ xs: "column", lg: "row" }}
+                                spacing={1.25}
+                                alignItems={{ xs: "stretch", lg: "center" }}
+                                justifyContent="space-between"
+                            >
+                                <Box>
+                                    <Typography variant="h5">Tabela Analítica do Período</Typography>
+                                    <Typography color="text.secondary">
+                                        {filteredOperations.length} registros encontrados para o filtro
+                                        atual.
+                                    </Typography>
+                                </Box>
+
+                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                    {operationViewOptions.map((option) => (
+                                        <Chip
+                                            key={option.value}
+                                            color={
+                                                operationView === option.value ? "secondary" : "default"
+                                            }
+                                            label={option.label}
+                                            onClick={() => setOperationView(option.value)}
+                                            variant={
+                                                operationView === option.value ? "filled" : "outlined"
+                                            }
+                                            sx={{ borderRadius: "999px", fontWeight: 800 }}
+                                        />
+                                    ))}
+                                </Stack>
+                            </Stack>
+
+                            <TableContainer>
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Tipo</TableCell>
+                                            <TableCell>Código</TableCell>
+                                            <TableCell>Descrição</TableCell>
+                                            <TableCell>Identificação</TableCell>
+                                            <TableCell>Data</TableCell>
+                                            <TableCell>Horário</TableCell>
+                                            <TableCell align="right">Valor</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {filteredOperations.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={7}
+                                                    sx={{ py: 4, color: "text.secondary" }}
+                                                >
+                                                    Nenhum registro encontrado para o período selecionado.
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            filteredOperations.map((operation) => (
+                                                <TableRow hover key={operation.id}>
+                                                    <TableCell>{operation.typeLabel}</TableCell>
+                                                    <TableCell sx={{ fontWeight: 700 }}>
+                                                        {operation.code}
+                                                    </TableCell>
+                                                    <TableCell>{operation.description}</TableCell>
+                                                    <TableCell>{operation.identification}</TableCell>
+                                                    <TableCell>{operation.dateLabel}</TableCell>
+                                                    <TableCell>{operation.timeLabel}</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                                        {operation.value}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
                         </Stack>
                     </Paper>
                 </>
