@@ -78,6 +78,44 @@ const emptyProductForm: StockProductInput = {
     isActive: true,
 };
 
+function getStockLevel(product: StockProduct) {
+    if (!product.controlsStock) {
+        return {
+            label: "Não controlado",
+            percent: 100,
+            color: "#94a3b8",
+        };
+    }
+
+    if (product.minimumStock <= 0) {
+        return {
+            label: "Sem mínimo definido",
+            percent: product.currentStock > 0 ? 100 : 0,
+            color: product.currentStock > 0 ? "#2e7d32" : "#c2410c",
+        };
+    }
+
+    const percent = Math.max(0, Math.min((product.currentStock / product.minimumStock) * 100, 100));
+
+    if (percent < 10) {
+        return { label: "Crítico", percent, color: "#b42318" };
+    }
+    if (percent < 20) {
+        return { label: "Muito baixo", percent, color: "#d92d20" };
+    }
+    if (percent < 40) {
+        return { label: "Baixo", percent, color: "#f97316" };
+    }
+    if (percent < 70) {
+        return { label: "Atenção", percent, color: "#f59e0b" };
+    }
+    if (percent < 100) {
+        return { label: "Próximo do ideal", percent, color: "#84cc16" };
+    }
+
+    return { label: "Regular", percent: 100, color: "#2e7d32" };
+}
+
 export function StockPage() {
     const [products, setProducts] = useState<StockProduct[]>([]);
     const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -319,24 +357,58 @@ export function StockPage() {
                                         ) : (
                                             filteredProducts.map((product) => (
                                                 <TableRow key={product.id} hover>
+                                                    {(() => {
+                                                        const stockLevel = getStockLevel(product);
+
+                                                        return (
+                                                            <>
                                                     <TableCell sx={{ fontWeight: 700 }}>
                                                         {product.name}
                                                     </TableCell>
                                                     <TableCell>{product.categoryName}</TableCell>
                                                     <TableCell>{product.unitLabel}</TableCell>
-                                                    <TableCell>{product.currentStockLabel}</TableCell>
+                                                    <TableCell>
+                                                        <Stack spacing={0.75} sx={{ minWidth: 120 }}>
+                                                            <Typography sx={{ fontSize: "0.9rem", fontWeight: 700 }}>
+                                                                {product.currentStockLabel}
+                                                            </Typography>
+                                                            <Box
+                                                                sx={{
+                                                                    width: "100%",
+                                                                    height: 6,
+                                                                    borderRadius: 999,
+                                                                    bgcolor: "#e7ecea",
+                                                                    overflow: "hidden",
+                                                                }}
+                                                            >
+                                                                <Box
+                                                                    sx={{
+                                                                        width: `${stockLevel.percent}%`,
+                                                                        minWidth:
+                                                                            product.currentStock > 0
+                                                                                ? "16px"
+                                                                                : 0,
+                                                                        height: "100%",
+                                                                        borderRadius: 999,
+                                                                        bgcolor: stockLevel.color,
+                                                                        transition:
+                                                                            "width 220ms ease, background-color 220ms ease",
+                                                                    }}
+                                                                />
+                                                            </Box>
+                                                        </Stack>
+                                                    </TableCell>
                                                     <TableCell>{product.minimumStockLabel}</TableCell>
-                                                    <TableCell
-                                                        sx={{
-                                                            color: product.isBelowMinimum
-                                                                ? "error.main"
-                                                                : "success.main",
-                                                            fontWeight: 700,
-                                                        }}
-                                                    >
-                                                        {product.isBelowMinimum
-                                                            ? "Abaixo do mínimo"
-                                                            : "Regular"}
+                                                    <TableCell>
+                                                        <Typography
+                                                            sx={{
+                                                                color: stockLevel.color,
+                                                                fontWeight: 700,
+                                                                fontSize: "0.9rem",
+                                                            }}
+                                                        >
+                                                            {stockLevel.label}
+                                                        </Typography>
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         <IconButton
@@ -352,6 +424,9 @@ export function StockPage() {
                                                             <SwapHorizRoundedIcon fontSize="small" />
                                                         </IconButton>
                                                     </TableCell>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </TableRow>
                                             ))
                                         )}
