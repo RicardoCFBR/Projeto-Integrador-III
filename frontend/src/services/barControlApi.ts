@@ -128,18 +128,24 @@ export type CashSession = {
     openedBy: string;
     closingCashCounted: string | null;
     closingPixCounted: string | null;
+    closingDebitCounted: string | null;
+    closingCreditCounted: string | null;
     closingCardCounted: string | null;
     expectedCashAtClose: string | null;
     expectedPixAtClose: string | null;
+    expectedDebitAtClose: string | null;
+    expectedCreditAtClose: string | null;
     expectedCardAtClose: string | null;
     cashDifference: string | null;
     pixDifference: string | null;
+    debitDifference: string | null;
+    creditDifference: string | null;
     cardDifference: string | null;
     totalDifference: string | null;
 };
 
 export type CashMovementType = "opening" | "withdrawal" | "supply" | "closing";
-export type CashSalePaymentMethod = "cash" | "pix" | "card";
+export type CashSalePaymentMethod = "cash" | "pix" | "debit" | "credit";
 
 export type CashMovement = {
     id: number;
@@ -196,6 +202,10 @@ export type CashOverview = {
         expectedCashNumber: number;
         expectedPix: string;
         expectedPixNumber: number;
+        expectedDebit: string;
+        expectedDebitNumber: number;
+        expectedCredit: string;
+        expectedCreditNumber: number;
         expectedCard: string;
         expectedCardNumber: number;
     };
@@ -208,8 +218,10 @@ export type FinanceSummary = {
     totalCashNumber: number;
     totalPix: string;
     totalPixNumber: number;
-    totalCard: string;
-    totalCardNumber: number;
+    totalDebit: string;
+    totalDebitNumber: number;
+    totalCredit: string;
+    totalCreditNumber: number;
     totalWithdrawals: string;
     totalWithdrawalsNumber: number;
     totalSupplies: string;
@@ -257,6 +269,10 @@ export type FinanceClosingSession = {
     cashDifferenceNumber: number;
     pixDifference: string;
     pixDifferenceNumber: number;
+    debitDifference: string;
+    debitDifferenceNumber: number;
+    creditDifference: string;
+    creditDifferenceNumber: number;
     cardDifference: string;
     cardDifferenceNumber: number;
     status: FinanceClosingStatus;
@@ -274,7 +290,7 @@ export type FinanceChartSalesPoint = {
 };
 
 export type FinancePaymentDistributionPoint = {
-    paymentMethod: "cash" | "pix" | "card";
+    paymentMethod: "cash" | "pix" | "debit" | "credit";
     paymentMethodLabel: string;
     total: number;
     totalLabel: string;
@@ -362,12 +378,18 @@ type ApiCashSession = {
     fechamento_dinheiro_informado: string | null;
     fechamento_pix_informado: string | null;
     fechamento_cartao_informado: string | null;
+    fechamento_debito_informado: string | null;
+    fechamento_credito_informado: string | null;
     valor_esperado_dinheiro: string | null;
     valor_esperado_pix: string | null;
     valor_esperado_cartao: string | null;
+    valor_esperado_debito: string | null;
+    valor_esperado_credito: string | null;
     diferenca_dinheiro: string | null;
     diferenca_pix: string | null;
     diferenca_cartao: string | null;
+    diferenca_debito: string | null;
+    diferenca_credito: string | null;
     diferenca_total: string | null;
 };
 
@@ -392,6 +414,8 @@ type ApiCashOverview = {
         vendas_count: number;
         esperado_dinheiro: string;
         esperado_pix: string;
+        esperado_debito: string;
+        esperado_credito: string;
         esperado_cartao: string;
     };
 };
@@ -408,7 +432,7 @@ type ApiCashSaleItem = {
 type ApiCashSale = {
     id: number;
     codigo: string;
-    forma_pagamento: "dinheiro" | "pix" | "cartao";
+    forma_pagamento: "dinheiro" | "pix" | "debito" | "credito";
     forma_pagamento_label: string;
     status: string;
     status_label: string;
@@ -425,7 +449,8 @@ type ApiFinanceSummary = {
         total_vendido: string;
         total_dinheiro: string;
         total_pix: string;
-        total_cartao: string;
+        total_debito: string;
+        total_credito: string;
         total_sangrias: string;
         total_suprimentos: string;
         ticket_medio: string;
@@ -460,6 +485,8 @@ type ApiFinanceClosingSession = {
     diferenca_dinheiro: string;
     diferenca_pix: string;
     diferenca_cartao: string;
+    diferenca_debito: string;
+    diferenca_credito: string;
     status_fechamento: FinanceClosingStatus;
     status_fechamento_label: string;
 };
@@ -475,7 +502,7 @@ type ApiFinanceChartSalesPoint = {
 };
 
 type ApiFinancePaymentDistributionPoint = {
-    forma_pagamento: "dinheiro" | "pix" | "cartao";
+    forma_pagamento: "dinheiro" | "pix" | "debito" | "credito";
     forma_pagamento_label: string;
     total: string;
     percentual: string;
@@ -518,8 +545,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
                 errorMessage = errorBody.dinheiro_contado[0];
             } else if (typeof errorBody.pix_conferido?.[0] === "string") {
                 errorMessage = errorBody.pix_conferido[0];
-            } else if (typeof errorBody.cartao_conferido?.[0] === "string") {
-                errorMessage = errorBody.cartao_conferido[0];
+            } else if (typeof errorBody.debito_conferido?.[0] === "string") {
+                errorMessage = errorBody.debito_conferido[0];
+            } else if (typeof errorBody.credito_conferido?.[0] === "string") {
+                errorMessage = errorBody.credito_conferido[0];
             } else if (typeof errorBody.valor_recebido?.[0] === "string") {
                 errorMessage = errorBody.valor_recebido[0];
             }
@@ -659,12 +688,18 @@ function mapCashSession(session: ApiCashSession | null): CashSession {
         openedBy: "Ricardo Silva",
         closingCashCounted: null,
         closingPixCounted: null,
+        closingDebitCounted: null,
+        closingCreditCounted: null,
         closingCardCounted: null,
         expectedCashAtClose: null,
         expectedPixAtClose: null,
+        expectedDebitAtClose: null,
+        expectedCreditAtClose: null,
         expectedCardAtClose: null,
         cashDifference: null,
         pixDifference: null,
+        debitDifference: null,
+        creditDifference: null,
         cardDifference: null,
         totalDifference: null,
     };
@@ -688,6 +723,14 @@ function mapCashSession(session: ApiCashSession | null): CashSession {
             session.fechamento_pix_informado === null
                 ? null
                 : formatCurrency(parseCurrency(session.fechamento_pix_informado)),
+        closingDebitCounted:
+            session.fechamento_debito_informado === null
+                ? null
+                : formatCurrency(parseCurrency(session.fechamento_debito_informado)),
+        closingCreditCounted:
+            session.fechamento_credito_informado === null
+                ? null
+                : formatCurrency(parseCurrency(session.fechamento_credito_informado)),
         closingCardCounted:
             session.fechamento_cartao_informado === null
                 ? null
@@ -700,6 +743,14 @@ function mapCashSession(session: ApiCashSession | null): CashSession {
             session.valor_esperado_pix === null
                 ? null
                 : formatCurrency(parseCurrency(session.valor_esperado_pix)),
+        expectedDebitAtClose:
+            session.valor_esperado_debito === null
+                ? null
+                : formatCurrency(parseCurrency(session.valor_esperado_debito)),
+        expectedCreditAtClose:
+            session.valor_esperado_credito === null
+                ? null
+                : formatCurrency(parseCurrency(session.valor_esperado_credito)),
         expectedCardAtClose:
             session.valor_esperado_cartao === null
                 ? null
@@ -712,6 +763,14 @@ function mapCashSession(session: ApiCashSession | null): CashSession {
             session.diferenca_pix === null
                 ? null
                 : formatCurrency(parseCurrency(session.diferenca_pix)),
+        debitDifference:
+            session.diferenca_debito === null
+                ? null
+                : formatCurrency(parseCurrency(session.diferenca_debito)),
+        creditDifference:
+            session.diferenca_credito === null
+                ? null
+                : formatCurrency(parseCurrency(session.diferenca_credito)),
         cardDifference:
             session.diferenca_cartao === null
                 ? null
@@ -748,8 +807,12 @@ function mapCashSalePaymentMethod(method: ApiCashSale["forma_pagamento"]): CashS
             return "cash";
         case "pix":
             return "pix";
+        case "debito":
+            return "debit";
+        case "credito":
+            return "credit";
         default:
-            return "card";
+            return "credit";
     }
 }
 
@@ -802,6 +865,8 @@ function mapCashOverview(overview: ApiCashOverview): CashOverview {
     const balanceNumber = parseCurrency(overview.resumo.saldo_em_caixa);
     const expectedCashNumber = parseCurrency(overview.resumo.esperado_dinheiro);
     const expectedPixNumber = parseCurrency(overview.resumo.esperado_pix);
+    const expectedDebitNumber = parseCurrency(overview.resumo.esperado_debito);
+    const expectedCreditNumber = parseCurrency(overview.resumo.esperado_credito);
     const expectedCardNumber = parseCurrency(overview.resumo.esperado_cartao);
 
     return {
@@ -819,6 +884,10 @@ function mapCashOverview(overview: ApiCashOverview): CashOverview {
             expectedCashNumber,
             expectedPix: formatCurrency(expectedPixNumber),
             expectedPixNumber,
+            expectedDebit: formatCurrency(expectedDebitNumber),
+            expectedDebitNumber,
+            expectedCredit: formatCurrency(expectedCreditNumber),
+            expectedCreditNumber,
             expectedCard: formatCurrency(expectedCardNumber),
             expectedCardNumber,
         },
@@ -829,7 +898,8 @@ function mapFinanceSummary(summary: ApiFinanceSummary): FinanceSummary {
     const totalSoldNumber = parseCurrency(summary.resumo.total_vendido);
     const totalCashNumber = parseCurrency(summary.resumo.total_dinheiro);
     const totalPixNumber = parseCurrency(summary.resumo.total_pix);
-    const totalCardNumber = parseCurrency(summary.resumo.total_cartao);
+    const totalDebitNumber = parseCurrency(summary.resumo.total_debito);
+    const totalCreditNumber = parseCurrency(summary.resumo.total_credito);
     const totalWithdrawalsNumber = parseCurrency(summary.resumo.total_sangrias);
     const totalSuppliesNumber = parseCurrency(summary.resumo.total_suprimentos);
     const averageTicketNumber = parseCurrency(summary.resumo.ticket_medio);
@@ -842,8 +912,10 @@ function mapFinanceSummary(summary: ApiFinanceSummary): FinanceSummary {
         totalCashNumber,
         totalPix: formatCurrency(totalPixNumber),
         totalPixNumber,
-        totalCard: formatCurrency(totalCardNumber),
-        totalCardNumber,
+        totalDebit: formatCurrency(totalDebitNumber),
+        totalDebitNumber,
+        totalCredit: formatCurrency(totalCreditNumber),
+        totalCreditNumber,
         totalWithdrawals: formatCurrency(totalWithdrawalsNumber),
         totalWithdrawalsNumber,
         totalSupplies: formatCurrency(totalSuppliesNumber),
@@ -886,6 +958,8 @@ function mapFinanceClosingSession(session: ApiFinanceClosingSession): FinanceClo
     const totalDifferenceNumber = parseCurrency(session.diferenca_total);
     const cashDifferenceNumber = parseCurrency(session.diferenca_dinheiro);
     const pixDifferenceNumber = parseCurrency(session.diferenca_pix);
+    const debitDifferenceNumber = parseCurrency(session.diferenca_debito);
+    const creditDifferenceNumber = parseCurrency(session.diferenca_credito);
     const cardDifferenceNumber = parseCurrency(session.diferenca_cartao);
     const openedAtDate = new Date(session.aberto_em);
     const closedAtDate = new Date(session.fechado_em);
@@ -907,6 +981,10 @@ function mapFinanceClosingSession(session: ApiFinanceClosingSession): FinanceClo
         cashDifferenceNumber,
         pixDifference: formatCurrency(pixDifferenceNumber),
         pixDifferenceNumber,
+        debitDifference: formatCurrency(debitDifferenceNumber),
+        debitDifferenceNumber,
+        creditDifference: formatCurrency(creditDifferenceNumber),
+        creditDifferenceNumber,
         cardDifference: formatCurrency(cardDifferenceNumber),
         cardDifferenceNumber,
         status: session.status_fechamento,
@@ -924,14 +1002,18 @@ function mapFinanceClosingSession(session: ApiFinanceClosingSession): FinanceClo
 
 function mapFinancePaymentMethod(
     method: ApiFinancePaymentDistributionPoint["forma_pagamento"],
-): "cash" | "pix" | "card" {
+): "cash" | "pix" | "debit" | "credit" {
     switch (method) {
         case "dinheiro":
             return "cash";
         case "pix":
             return "pix";
+        case "debito":
+            return "debit";
+        case "credito":
+            return "credit";
         default:
-            return "card";
+            return "credit";
     }
 }
 
@@ -1061,7 +1143,9 @@ export async function payTab(input: {
             ? "dinheiro"
             : input.paymentMethod === "pix"
               ? "pix"
-              : "cartao";
+              : input.paymentMethod === "debit"
+                ? "debito"
+                : "credito";
 
     const response = await request<ApiTabDetail>(`/comandas/${input.tabId}/pagar/`, {
         method: "POST",
@@ -1211,14 +1295,16 @@ export async function openCashSession(openingFund: number, operatorName?: string
 export async function closeCashSession(input: {
     cashCounted: number;
     pixCounted: number;
-    cardCounted: number;
+    debitCounted: number;
+    creditCounted: number;
 }) {
     const response = await request<ApiCashOverview>("/caixa/fechar/", {
         method: "POST",
         body: JSON.stringify({
             dinheiro_contado: input.cashCounted.toFixed(2),
             pix_conferido: input.pixCounted.toFixed(2),
-            cartao_conferido: input.cardCounted.toFixed(2),
+            debito_conferido: input.debitCounted.toFixed(2),
+            credito_conferido: input.creditCounted.toFixed(2),
         }),
     });
     return mapCashOverview(response);
@@ -1254,7 +1340,9 @@ export async function createCashSale(input: {
             ? "dinheiro"
             : input.paymentMethod === "pix"
               ? "pix"
-              : "cartao";
+              : input.paymentMethod === "debit"
+                ? "debito"
+                : "credito";
 
     const response = await request<ApiCashSale>("/caixa/vendas/", {
         method: "POST",
@@ -1298,7 +1386,9 @@ export async function listCashSalesHistory(input?: {
                 ? "dinheiro"
                 : input.paymentMethod === "pix"
                   ? "pix"
-                  : "cartao";
+                  : input.paymentMethod === "debit"
+                    ? "debito"
+                    : "credito";
         params.set("forma_pagamento", paymentMethod);
     }
 

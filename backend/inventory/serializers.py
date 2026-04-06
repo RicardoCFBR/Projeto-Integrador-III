@@ -218,12 +218,18 @@ class SessaoCaixaSerializer(serializers.ModelSerializer):
             "fechamento_dinheiro_informado",
             "fechamento_pix_informado",
             "fechamento_cartao_informado",
+            "fechamento_debito_informado",
+            "fechamento_credito_informado",
             "valor_esperado_dinheiro",
             "valor_esperado_pix",
             "valor_esperado_cartao",
+            "valor_esperado_debito",
+            "valor_esperado_credito",
             "diferenca_dinheiro",
             "diferenca_pix",
             "diferenca_cartao",
+            "diferenca_debito",
+            "diferenca_credito",
             "diferenca_total",
         ]
 
@@ -317,7 +323,12 @@ class SessaoCaixaFechamentoSerializer(serializers.Serializer):
         decimal_places=2,
         min_value=Decimal("0.00"),
     )
-    cartao_conferido = serializers.DecimalField(
+    debito_conferido = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+    )
+    credito_conferido = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
         min_value=Decimal("0.00"),

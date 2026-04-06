@@ -22,7 +22,8 @@ type CashSessionContextValue = {
     closeCash: (input: {
         cashCounted: number;
         pixCounted: number;
-        cardCounted: number;
+        debitCounted: number;
+        creditCounted: number;
     }) => Promise<void>;
     refreshCashSession: () => Promise<void>;
 };
@@ -37,12 +38,18 @@ const closedSession: CashSession = {
     openedBy: "Ricardo Silva",
     closingCashCounted: null,
     closingPixCounted: null,
+    closingDebitCounted: null,
+    closingCreditCounted: null,
     closingCardCounted: null,
     expectedCashAtClose: null,
     expectedPixAtClose: null,
+    expectedDebitAtClose: null,
+    expectedCreditAtClose: null,
     expectedCardAtClose: null,
     cashDifference: null,
     pixDifference: null,
+    debitDifference: null,
+    creditDifference: null,
     cardDifference: null,
     totalDifference: null,
 };
@@ -58,6 +65,10 @@ const defaultSummary: CashOverview["summary"] = {
     expectedCashNumber: 0,
     expectedPix: "R$ 0,00",
     expectedPixNumber: 0,
+    expectedDebit: "R$ 0,00",
+    expectedDebitNumber: 0,
+    expectedCredit: "R$ 0,00",
+    expectedCreditNumber: 0,
     expectedCard: "R$ 0,00",
     expectedCardNumber: 0,
 };
@@ -111,7 +122,8 @@ export function CashSessionProvider({ children }: { children: ReactNode }) {
     async function closeCash(input: {
         cashCounted: number;
         pixCounted: number;
-        cardCounted: number;
+        debitCounted: number;
+        creditCounted: number;
     }) {
         setError(null);
         const overview = await closeCashSession(input);

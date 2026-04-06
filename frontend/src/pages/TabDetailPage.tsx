@@ -1042,9 +1042,10 @@ export function TabDetailPage() {
                             setPaymentMethod(event.target.value as CashSalePaymentMethod)
                         }
                     >
-                        <MenuItem value="pix">Pix</MenuItem>
-                        <MenuItem value="card">Cartão</MenuItem>
-                        <MenuItem value="cash">Dinheiro</MenuItem>
+                                    <MenuItem value="pix">Pix</MenuItem>
+                                    <MenuItem value="debit">Débito</MenuItem>
+                                    <MenuItem value="credit">Crédito</MenuItem>
+                                    <MenuItem value="cash">Dinheiro</MenuItem>
                     </TextField>
 
                     {paymentMethod === "cash" ? (

@@ -154,7 +154,8 @@ export function SalesHistoryPage() {
                                 <MenuItem value="all">Todos</MenuItem>
                                 <MenuItem value="cash">Dinheiro</MenuItem>
                                 <MenuItem value="pix">Pix</MenuItem>
-                                <MenuItem value="card">Cartão</MenuItem>
+                                <MenuItem value="debit">Débito</MenuItem>
+                                <MenuItem value="credit">Crédito</MenuItem>
                             </TextField>
 
                             {period === "personalizado" ? (
@@ -261,76 +262,121 @@ export function SalesHistoryPage() {
             </Stack>
 
             <Dialog
-                fullWidth
-                maxWidth="sm"
-                onClose={() => setSelectedSale(null)}
                 open={selectedSale !== null}
+                onClose={() => setSelectedSale(null)}
+                fullWidth
+                maxWidth="md"
             >
-                <DialogTitle>Detalhe da Venda</DialogTitle>
+                <DialogTitle>Comprovante da Venda</DialogTitle>
                 <DialogContent>
-                    {detailLoading || !selectedSale ? (
-                        <Typography>Carregando detalhe...</Typography>
+                    {detailLoading || selectedSale === null ? (
+                        <Typography>Carregando recibo...</Typography>
                     ) : (
                         <Stack spacing={2.5} sx={{ pt: 1 }}>
-                            <Box>
-                                <Typography variant="h5">{selectedSale.code}</Typography>
-                                <Typography color="text.secondary">
-                                    {selectedSale.timeLabel} | {selectedSale.paymentMethodLabel}
-                                </Typography>
-                            </Box>
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: "12px",
+                                    bgcolor: "#f8faf9",
+                                    border: "1px dashed rgba(36,49,50,0.18)",
+                                }}
+                            >
+                                <Stack spacing={2}>
+                                    <Stack
+                                        direction={{ xs: "column", md: "row" }}
+                                        justifyContent="space-between"
+                                        spacing={1.5}
+                                    >
+                                        <Box>
+                                            <Typography sx={{ fontSize: "0.8rem", color: "text.secondary" }}>
+                                                BarControl
+                                            </Typography>
+                                            <Typography variant="h5">Recibo de Venda</Typography>
+                                            <Typography color="text.secondary">
+                                                {selectedSale.code}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ textAlign: { xs: "left", md: "right" } }}>
+                                            <Typography sx={{ fontWeight: 700 }}>
+                                                {selectedSale.timeLabel} | {selectedSale.paymentMethodLabel}
+                                            </Typography>
+                                            <Typography color="text.secondary">
+                                                Status: {selectedSale.statusLabel}
+                                            </Typography>
+                                        </Box>
+                                    </Stack>
 
-                            <Stack spacing={1}>
-                                {selectedSale.items.map((item) => (
-                                    <Paper key={item.id} elevation={0} sx={{ p: 2, borderRadius: "10px", bgcolor: "#eef3f1" }}>
-                                        <Stack direction="row" justifyContent="space-between" spacing={2}>
-                                            <Box>
-                                                <Typography sx={{ fontWeight: 700 }}>{item.title}</Typography>
-                                                <Typography color="text.secondary">
-                                                    {item.quantity} x {item.unitPrice}
+                                    <Stack spacing={1.25}>
+                                        {selectedSale.items.map((item) => (
+                                            <Stack
+                                                key={item.id}
+                                                direction="row"
+                                                justifyContent="space-between"
+                                                alignItems="flex-start"
+                                                spacing={1.5}
+                                                sx={{
+                                                    py: 1.25,
+                                                    borderBottom:
+                                                        "1px solid rgba(36,49,50,0.08)",
+                                                }}
+                                            >
+                                                <Box>
+                                                    <Typography sx={{ fontWeight: 700 }}>
+                                                        {item.quantity}x {item.title}
+                                                    </Typography>
+                                                    <Typography color="text.secondary">
+                                                        Unitário: {item.unitPrice}
+                                                    </Typography>
+                                                </Box>
+                                                <Typography sx={{ fontWeight: 800 }}>
+                                                    {item.total}
                                                 </Typography>
-                                            </Box>
-                                            <Typography sx={{ fontWeight: 800 }}>{item.total}</Typography>
-                                        </Stack>
-                                    </Paper>
-                                ))}
-                            </Stack>
+                                            </Stack>
+                                        ))}
+                                    </Stack>
 
-                            <Paper elevation={0} sx={{ p: 2, borderRadius: "10px", bgcolor: "#f7f9f8" }}>
-                                <Stack spacing={1}>
-                                    <Stack direction="row" justifyContent="space-between">
-                                        <Typography color="text.secondary">Forma de pagamento</Typography>
-                                        <Typography>{selectedSale.paymentMethodLabel}</Typography>
-                                    </Stack>
-                                    <Stack direction="row" justifyContent="space-between">
-                                        <Typography color="text.secondary">Total</Typography>
-                                        <Typography sx={{ fontWeight: 800 }}>{selectedSale.total}</Typography>
-                                    </Stack>
-                                    {selectedSale.receivedAmount ? (
-                                        <Stack direction="row" justifyContent="space-between">
-                                            <Typography color="text.secondary">Valor recebido</Typography>
-                                            <Typography>{selectedSale.receivedAmount}</Typography>
-                                        </Stack>
-                                    ) : null}
-                                    <Stack direction="row" justifyContent="space-between">
-                                        <Typography color="text.secondary">Troco</Typography>
-                                        <Typography>{selectedSale.changeAmount}</Typography>
-                                    </Stack>
-                                    {selectedSale.observation ? (
+                                    <Stack
+                                        direction={{ xs: "column", md: "row" }}
+                                        justifyContent="space-between"
+                                        spacing={2}
+                                    >
                                         <Stack spacing={0.5}>
+                                            <Typography color="text.secondary">
+                                                Forma de pagamento
+                                            </Typography>
+                                            <Typography>{selectedSale.paymentMethodLabel}</Typography>
+                                            {selectedSale.receivedAmount ? (
+                                                <Typography color="text.secondary">
+                                                    Valor recebido: {selectedSale.receivedAmount}
+                                                </Typography>
+                                            ) : null}
+                                            {selectedSale.changeAmountNumber > 0 ? (
+                                                <Typography color="text.secondary">
+                                                    Troco: {selectedSale.changeAmount}
+                                                </Typography>
+                                            ) : null}
+                                        </Stack>
+                                        <Box sx={{ textAlign: { xs: "left", md: "right" } }}>
+                                            <Typography color="text.secondary">Total</Typography>
+                                            <Typography variant="h4">{selectedSale.total}</Typography>
+                                        </Box>
+                                    </Stack>
+
+                                    {selectedSale.observation ? (
+                                        <Box>
                                             <Typography color="text.secondary">Observação</Typography>
                                             <Typography>{selectedSale.observation}</Typography>
-                                        </Stack>
+                                        </Box>
                                     ) : null}
                                 </Stack>
                             </Paper>
                         </Stack>
                     )}
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                <DialogActions>
+                    <Button disabled>Reimprimir</Button>
                     <Button onClick={() => setSelectedSale(null)}>Fechar</Button>
-                    <Button disabled variant="outlined">
-                        Reimprimir
-                    </Button>
                 </DialogActions>
             </Dialog>
         </>

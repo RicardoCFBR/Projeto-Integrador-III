@@ -205,6 +205,18 @@ class SessaoCaixa(models.Model):
         blank=True,
         null=True,
     )
+    fechamento_debito_informado = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    fechamento_credito_informado = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
     valor_esperado_dinheiro = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -223,6 +235,18 @@ class SessaoCaixa(models.Model):
         blank=True,
         null=True,
     )
+    valor_esperado_debito = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    valor_esperado_credito = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
     diferenca_dinheiro = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -236,6 +260,18 @@ class SessaoCaixa(models.Model):
         null=True,
     )
     diferenca_cartao = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    diferenca_debito = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    diferenca_credito = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         blank=True,
@@ -304,7 +340,8 @@ class VendaCaixa(models.Model):
     class FormaPagamento(models.TextChoices):
         DINHEIRO = "dinheiro", "Dinheiro"
         PIX = "pix", "Pix"
-        CARTAO = "cartao", "Cartao"
+        DEBITO = "debito", "Debito"
+        CREDITO = "credito", "Credito"
 
     class Status(models.TextChoices):
         FINALIZADA = "finalizada", "Finalizada"

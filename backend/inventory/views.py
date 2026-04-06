@@ -163,14 +163,23 @@ def calculate_cash_overview_summary(sessao):
         ),
         Decimal("0.00"),
     )
-    total_vendas_cartao = sum(
+    total_vendas_debito = sum(
         (
             item.valor_total
             for item in vendas
-            if item.forma_pagamento == VendaCaixa.FormaPagamento.CARTAO
+            if item.forma_pagamento == VendaCaixa.FormaPagamento.DEBITO
         ),
         Decimal("0.00"),
     )
+    total_vendas_credito = sum(
+        (
+            item.valor_total
+            for item in vendas
+            if item.forma_pagamento == VendaCaixa.FormaPagamento.CREDITO
+        ),
+        Decimal("0.00"),
+    )
+    total_vendas_cartao = total_vendas_debito + total_vendas_credito
 
     saldo_em_caixa = (
         sessao.fundo_troco_inicial
@@ -190,6 +199,8 @@ def calculate_cash_overview_summary(sessao):
             "esperado_dinheiro": saldo_em_caixa,
             "esperado_pix": total_vendas_pix,
             "esperado_cartao": total_vendas_cartao,
+            "esperado_debito": total_vendas_debito,
+            "esperado_credito": total_vendas_credito,
         },
     }
 
@@ -567,11 +578,19 @@ class FinanceSummaryView(APIView):
             ),
             Decimal("0.00"),
         )
-        total_cartao = sum(
+        total_debito = sum(
             (
                 venda.valor_total
                 for venda in vendas
-                if venda.forma_pagamento == VendaCaixa.FormaPagamento.CARTAO
+                if venda.forma_pagamento == VendaCaixa.FormaPagamento.DEBITO
+            ),
+            Decimal("0.00"),
+        )
+        total_credito = sum(
+            (
+                venda.valor_total
+                for venda in vendas
+                if venda.forma_pagamento == VendaCaixa.FormaPagamento.CREDITO
             ),
             Decimal("0.00"),
         )
@@ -606,7 +625,9 @@ class FinanceSummaryView(APIView):
                     "total_vendido": total_vendido,
                     "total_dinheiro": total_dinheiro,
                     "total_pix": total_pix,
-                    "total_cartao": total_cartao,
+                    "total_debito": total_debito,
+                    "total_credito": total_credito,
+                    "total_cartao": total_debito + total_credito,
                     "total_sangrias": total_sangrias,
                     "total_suprimentos": total_suprimentos,
                     "ticket_medio": ticket_medio,
@@ -688,7 +709,8 @@ class FinanceClosingMetricsView(APIView):
             conferido_total = (
                 (sessao.fechamento_dinheiro_informado or Decimal("0.00"))
                 + (sessao.fechamento_pix_informado or Decimal("0.00"))
-                + (sessao.fechamento_cartao_informado or Decimal("0.00"))
+                + (sessao.fechamento_debito_informado or Decimal("0.00"))
+                + (sessao.fechamento_credito_informado or Decimal("0.00"))
             )
 
             if diferenca_total > 0:
@@ -714,6 +736,8 @@ class FinanceClosingMetricsView(APIView):
                     "diferenca_dinheiro": sessao.diferenca_dinheiro or Decimal("0.00"),
                     "diferenca_pix": sessao.diferenca_pix or Decimal("0.00"),
                     "diferenca_cartao": sessao.diferenca_cartao or Decimal("0.00"),
+                    "diferenca_debito": sessao.diferenca_debito or Decimal("0.00"),
+                    "diferenca_credito": sessao.diferenca_credito or Decimal("0.00"),
                     "status_fechamento": status_fechamento,
                     "status_fechamento_label": status_fechamento_label,
                 }
@@ -746,7 +770,8 @@ class FinanceChartsView(APIView):
         for forma_pagamento, forma_label in [
             (VendaCaixa.FormaPagamento.DINHEIRO, "Dinheiro"),
             (VendaCaixa.FormaPagamento.PIX, "Pix"),
-            (VendaCaixa.FormaPagamento.CARTAO, "Cartão"),
+            (VendaCaixa.FormaPagamento.DEBITO, "Débito"),
+            (VendaCaixa.FormaPagamento.CREDITO, "Crédito"),
         ]:
             total_forma = sum(
                 (
@@ -804,6 +829,8 @@ class CashOverviewView(APIView):
                         "esperado_dinheiro": "0.00",
                         "esperado_pix": "0.00",
                         "esperado_cartao": "0.00",
+                        "esperado_debito": "0.00",
+                        "esperado_credito": "0.00",
                     },
                 }
             )
@@ -864,14 +891,25 @@ class CashCloseView(APIView):
         overview = calculate_cash_overview_summary(sessao)
         esperado_dinheiro = overview["resumo"]["esperado_dinheiro"]
         esperado_pix = overview["resumo"]["esperado_pix"]
+        esperado_debito = overview["resumo"]["esperado_debito"]
+        esperado_credito = overview["resumo"]["esperado_credito"]
         esperado_cartao = overview["resumo"]["esperado_cartao"]
         dinheiro_contado = serializer.validated_data["dinheiro_contado"]
         pix_conferido = serializer.validated_data["pix_conferido"]
-        cartao_conferido = serializer.validated_data["cartao_conferido"]
+        debito_conferido = serializer.validated_data["debito_conferido"]
+        credito_conferido = serializer.validated_data["credito_conferido"]
+        cartao_conferido = debito_conferido + credito_conferido
         diferenca_dinheiro = dinheiro_contado - esperado_dinheiro
         diferenca_pix = pix_conferido - esperado_pix
+        diferenca_debito = debito_conferido - esperado_debito
+        diferenca_credito = credito_conferido - esperado_credito
         diferenca_cartao = cartao_conferido - esperado_cartao
-        diferenca_total = diferenca_dinheiro + diferenca_pix + diferenca_cartao
+        diferenca_total = (
+            diferenca_dinheiro
+            + diferenca_pix
+            + diferenca_debito
+            + diferenca_credito
+        )
 
         with transaction.atomic():
             MovimentacaoCaixa.objects.create(
@@ -886,12 +924,18 @@ class CashCloseView(APIView):
             sessao.fechamento_dinheiro_informado = dinheiro_contado
             sessao.fechamento_pix_informado = pix_conferido
             sessao.fechamento_cartao_informado = cartao_conferido
+            sessao.fechamento_debito_informado = debito_conferido
+            sessao.fechamento_credito_informado = credito_conferido
             sessao.valor_esperado_dinheiro = esperado_dinheiro
             sessao.valor_esperado_pix = esperado_pix
             sessao.valor_esperado_cartao = esperado_cartao
+            sessao.valor_esperado_debito = esperado_debito
+            sessao.valor_esperado_credito = esperado_credito
             sessao.diferenca_dinheiro = diferenca_dinheiro
             sessao.diferenca_pix = diferenca_pix
             sessao.diferenca_cartao = diferenca_cartao
+            sessao.diferenca_debito = diferenca_debito
+            sessao.diferenca_credito = diferenca_credito
             sessao.diferenca_total = diferenca_total
             sessao.save(
                 update_fields=[
@@ -900,12 +944,18 @@ class CashCloseView(APIView):
                     "fechamento_dinheiro_informado",
                     "fechamento_pix_informado",
                     "fechamento_cartao_informado",
+                    "fechamento_debito_informado",
+                    "fechamento_credito_informado",
                     "valor_esperado_dinheiro",
                     "valor_esperado_pix",
                     "valor_esperado_cartao",
+                    "valor_esperado_debito",
+                    "valor_esperado_credito",
                     "diferenca_dinheiro",
                     "diferenca_pix",
                     "diferenca_cartao",
+                    "diferenca_debito",
+                    "diferenca_credito",
                     "diferenca_total",
                 ]
             )
@@ -923,6 +973,8 @@ class CashCloseView(APIView):
                     "esperado_dinheiro": "0.00",
                     "esperado_pix": "0.00",
                     "esperado_cartao": "0.00",
+                    "esperado_debito": "0.00",
+                    "esperado_credito": "0.00",
                 },
             }
         )
@@ -1077,7 +1129,8 @@ class CashSaleHistoryView(APIView):
         if forma_pagamento in {
             VendaCaixa.FormaPagamento.DINHEIRO,
             VendaCaixa.FormaPagamento.PIX,
-            VendaCaixa.FormaPagamento.CARTAO,
+            VendaCaixa.FormaPagamento.DEBITO,
+            VendaCaixa.FormaPagamento.CREDITO,
         }:
             queryset = queryset.filter(forma_pagamento=forma_pagamento)
 

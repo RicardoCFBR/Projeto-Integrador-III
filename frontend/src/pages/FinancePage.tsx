@@ -74,8 +74,10 @@ const emptySummary: FinanceSummary = {
     totalCashNumber: 0,
     totalPix: "R$ 0,00",
     totalPixNumber: 0,
-    totalCard: "R$ 0,00",
-    totalCardNumber: 0,
+    totalDebit: "R$ 0,00",
+    totalDebitNumber: 0,
+    totalCredit: "R$ 0,00",
+    totalCreditNumber: 0,
     totalWithdrawals: "R$ 0,00",
     totalWithdrawalsNumber: 0,
     totalSupplies: "R$ 0,00",
@@ -100,7 +102,8 @@ const closingStatusColorMap: Record<
 const paymentChartColors: Record<FinancePaymentDistributionPoint["paymentMethod"], string> = {
     cash: "#2E7D32",
     pix: "#0288D1",
-    card: "#F9A825",
+    debit: "#F9A825",
+    credit: "#8E24AA",
 };
 
 function normalizeTooltipValue(
@@ -160,9 +163,15 @@ export function FinancePage() {
                 icon: <PaymentsRoundedIcon color="secondary" />,
             },
             {
-                title: "Cartão",
-                value: summary.totalCard,
-                description: "Pagamentos processados em cartão.",
+                title: "Débito",
+                value: summary.totalDebit,
+                description: "Pagamentos processados no débito.",
+                icon: <PaymentsRoundedIcon color="secondary" />,
+            },
+            {
+                title: "Crédito",
+                value: summary.totalCredit,
+                description: "Pagamentos processados no crédito.",
                 icon: <PaymentsRoundedIcon color="secondary" />,
             },
             {
@@ -435,7 +444,7 @@ export function FinancePage() {
                                 <Box>
                                     <Typography variant="h5">Distribuição por Pagamento</Typography>
                                     <Typography color="text.secondary">
-                                        Percentual de dinheiro, Pix e cartão no faturamento.
+                                        Percentual de dinheiro, Pix, débito e crédito no faturamento.
                                     </Typography>
                                 </Box>
                                 <Box sx={{ width: "100%", height: 280 }}>
@@ -692,8 +701,10 @@ export function FinancePage() {
                                                         {session.totalDifference}
                                                     </TableCell>
                                                     <TableCell>
-                                                        D: {session.cashDifference} | P: {session.pixDifference}
-                                                        {" | "}C: {session.cardDifference}
+                                                        Din: {session.cashDifference}
+                                                        {" | "}Pix: {session.pixDifference}
+                                                        {" | "}Déb: {session.debitDifference}
+                                                        {" | "}Créd: {session.creditDifference}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Chip
