@@ -74,19 +74,7 @@ export function LoginPage() {
                             alt="BarControl"
                             sx={{ width: 180, height: "auto" }}
                         />
-                        <Box>
-                            <Typography
-                                sx={{
-                                    color: "#4a76d6",
-                                    fontSize: "clamp(2rem, 3vw, 3rem)",
-                                    lineHeight: 1,
-                                    letterSpacing: "-0.04em",
-                                    fontFamily: '"Plus Jakarta Sans", sans-serif',
-                                    fontWeight: 800,
-                                }}
-                            >
-                                Entrar no Sistema
-                            </Typography>
+                        <Box>                            
                             <Typography color="text.secondary" sx={{ mt: 1.5 }}>
                                 Acesse o BarControl com seu usuário de operador ou gerente.
                             </Typography>

@@ -84,7 +84,7 @@ let theme = createTheme({
 theme = responsiveFontSizes(theme);
 
 function HomeRoute() {
-    const { isCashOpen, loading } = useCashSession();
+    const { loading } = useCashSession();
 
     if (loading) {
         return (
@@ -94,7 +94,7 @@ function HomeRoute() {
         );
     }
 
-    return <Navigate replace to={isCashOpen ? "/comandas" : "/caixa"} />;
+    return <Navigate replace to="/dashboard" />;
 }
 
 function AuthenticatedOnlyRoute({ children }: { children: ReactElement }) {
@@ -145,7 +145,7 @@ function LoginOnlyRoute() {
     }
 
     if (isAuthenticated) {
-        return <Navigate replace to="/" />;
+        return <Navigate replace to="/dashboard" />;
     }
 
     return <LoginPage />;
