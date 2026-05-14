@@ -45,6 +45,10 @@ export type Product = {
     categoryName: string;
     categorySlug: string;
     stockType: string;
+    controlsStock: boolean;
+    currentStock: number;
+    currentStockLabel: string;
+    minimumStock: number;
 };
 
 export type ProductCategory = {
@@ -171,6 +175,9 @@ export type CashSaleItem = {
 export type CashSale = {
     id: number;
     code: string;
+    comandaId: number | null;
+    comandaCode: string | null;
+    comandaCustomerName: string | null;
     paymentMethod: CashSalePaymentMethod;
     paymentMethodLabel: string;
     status: string;
@@ -458,6 +465,9 @@ type ApiCashSale = {
     observacao: string;
     criada_em: string;
     itens: ApiCashSaleItem[];
+    comanda_id: number | null;
+    comanda_codigo: string | null;
+    comanda_nome_cliente: string | null;
 };
 
 type ApiFinanceSummary = {
@@ -716,7 +726,7 @@ function mapCashSession(session: ApiCashSession | null): CashSession {
             openingFundNumber: 0,
         openedAt: null,
         closedAt: null,
-        openedBy: "Ricardo Silva",
+        openedBy: "Operador do Caixa",
         closingCashCounted: null,
         closingPixCounted: null,
         closingDebitCounted: null,
@@ -870,6 +880,9 @@ function mapCashSale(sale: ApiCashSale): CashSale {
     return {
         id: sale.id,
         code: sale.codigo,
+        comandaId: sale.comanda_id,
+        comandaCode: sale.comanda_codigo,
+        comandaCustomerName: sale.comanda_nome_cliente,
         paymentMethod: mapCashSalePaymentMethod(sale.forma_pagamento),
         paymentMethodLabel: sale.forma_pagamento_label,
         status: sale.status,
@@ -1255,6 +1268,10 @@ export async function listProducts() {
             categoryName: product.categoria_nome ?? "Sem categoria",
             categorySlug: product.categoria_slug ?? "sem-categoria",
             stockType: product.tipo_estoque,
+            controlsStock: product.controla_estoque,
+            currentStock: parseCurrency(product.estoque_atual),
+            currentStockLabel: `${parseCurrency(product.estoque_atual).toLocaleString("pt-BR")} ${product.unidade_medida_display}`,
+            minimumStock: parseCurrency(product.estoque_minimo),
         }));
 }
 

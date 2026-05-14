@@ -105,7 +105,9 @@ export function CashierOverviewPage() {
                     sortDate: sale.createdAt,
                     registerType: "Venda",
                     code: sale.code,
-                    description: "Venda no balcão",
+                    description: sale.comandaCode
+                        ? `Pagamento da comanda ${sale.comandaCode}${sale.comandaCustomerName ? ` - ${sale.comandaCustomerName}` : ""}`
+                        : "Venda no balcão",
                     detail: sale.paymentMethodLabel,
                     timeLabel: sale.timeLabel,
                     value: sale.total,

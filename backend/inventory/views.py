@@ -434,39 +434,42 @@ class ComandaViewSet(viewsets.ModelViewSet):
         else:
             valor_recebido = None
 
-        with transaction.atomic():
-            venda = VendaCaixa.objects.create(
-                sessao_caixa=sessao,
-                comanda=comanda,
-                codigo=generate_venda_caixa_codigo(sessao),
-                forma_pagamento=serializer.validated_data["forma_pagamento"],
-                valor_total=valor_total,
-                valor_recebido=valor_recebido,
-                troco=troco,
-                observacao=serializer.validated_data.get("observacao", ""),
-            )
-            ItemVendaCaixa.objects.bulk_create(
-                [
-                    ItemVendaCaixa(
-                        venda=venda,
-                        produto=item.produto,
-                        quantidade=item.quantidade,
-                        preco_unitario=item.preco_unitario,
-                    )
-                    for item in itens
-                ]
-            )
-            for item in itens:
-                if item.produto.controla_estoque:
-                    apply_stock_movement(
-                        item.produto,
-                        MovimentacaoEstoque.Tipo.VENDA,
-                        Decimal(item.quantidade),
-                        f"Baixa automatica da venda {venda.codigo}",
-                    )
-            comanda.status = Comanda.Status.ENCERRADA
-            comanda.encerrada_em = timezone.now()
-            comanda.save(update_fields=["status", "encerrada_em"])
+        try:
+            with transaction.atomic():
+                venda = VendaCaixa.objects.create(
+                    sessao_caixa=sessao,
+                    comanda=comanda,
+                    codigo=generate_venda_caixa_codigo(sessao),
+                    forma_pagamento=serializer.validated_data["forma_pagamento"],
+                    valor_total=valor_total,
+                    valor_recebido=valor_recebido,
+                    troco=troco,
+                    observacao=serializer.validated_data.get("observacao", ""),
+                )
+                ItemVendaCaixa.objects.bulk_create(
+                    [
+                        ItemVendaCaixa(
+                            venda=venda,
+                            produto=item.produto,
+                            quantidade=item.quantidade,
+                            preco_unitario=item.preco_unitario,
+                        )
+                        for item in itens
+                    ]
+                )
+                for item in itens:
+                    if item.produto.controla_estoque:
+                        apply_stock_movement(
+                            item.produto,
+                            MovimentacaoEstoque.Tipo.VENDA,
+                            Decimal(item.quantidade),
+                            f"Baixa automatica da venda {venda.codigo}",
+                        )
+                comanda.status = Comanda.Status.ENCERRADA
+                comanda.encerrada_em = timezone.now()
+                comanda.save(update_fields=["status", "encerrada_em"])
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         response_serializer = ComandaDetailSerializer(comanda_detail_queryset().get(pk=comanda.pk))
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -862,7 +865,7 @@ class CashOpenView(APIView):
 
         with transaction.atomic():
             sessao = SessaoCaixa.objects.create(
-                operador_nome=serializer.validated_data.get("operador_nome", "Ricardo Silva"),
+                operador_nome=serializer.validated_data.get("operador_nome", "Operador do Caixa"),
                 fundo_troco_inicial=serializer.validated_data["fundo_troco_inicial"],
                 status=SessaoCaixa.Status.ABERTO,
             )
@@ -1048,13 +1051,20 @@ class CashSaleCreateView(APIView):
         serializer.is_valid(raise_exception=True)
 
         itens_payload = serializer.validated_data["itens"]
+        product_ids = [item["produto_id"] for item in itens_payload]
         produtos = {
             produto.id: produto
             for produto in Produto.objects.filter(
-                id__in=[item["produto_id"] for item in itens_payload],
+                id__in=product_ids,
                 ativo=True,
             )
         }
+
+        if len(produtos) != len(set(product_ids)):
+            return Response(
+                {"detail": "Um ou mais produtos informados nao estao mais disponiveis para venda."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         valor_total = sum(
             produtos[item["produto_id"]].preco_venda * item["quantidade"]
@@ -1074,37 +1084,40 @@ class CashSaleCreateView(APIView):
         else:
             valor_recebido = None
 
-        with transaction.atomic():
-            venda = VendaCaixa.objects.create(
-                sessao_caixa=sessao,
-                codigo=generate_venda_caixa_codigo(sessao),
-                forma_pagamento=serializer.validated_data["forma_pagamento"],
-                valor_total=valor_total,
-                valor_recebido=valor_recebido,
-                troco=troco,
-                observacao=serializer.validated_data.get("observacao", ""),
-            )
+        try:
+            with transaction.atomic():
+                venda = VendaCaixa.objects.create(
+                    sessao_caixa=sessao,
+                    codigo=generate_venda_caixa_codigo(sessao),
+                    forma_pagamento=serializer.validated_data["forma_pagamento"],
+                    valor_total=valor_total,
+                    valor_recebido=valor_recebido,
+                    troco=troco,
+                    observacao=serializer.validated_data.get("observacao", ""),
+                )
 
-            ItemVendaCaixa.objects.bulk_create(
-                [
-                    ItemVendaCaixa(
-                        venda=venda,
-                        produto=produtos[item["produto_id"]],
-                        quantidade=item["quantidade"],
-                        preco_unitario=produtos[item["produto_id"]].preco_venda,
-                    )
-                    for item in itens_payload
-                ]
-            )
-            for item in itens_payload:
-                produto = produtos[item["produto_id"]]
-                if produto.controla_estoque:
-                    apply_stock_movement(
-                        produto,
-                        MovimentacaoEstoque.Tipo.VENDA,
-                        Decimal(item["quantidade"]),
-                        f"Baixa automatica da venda {venda.codigo}",
-                    )
+                ItemVendaCaixa.objects.bulk_create(
+                    [
+                        ItemVendaCaixa(
+                            venda=venda,
+                            produto=produtos[item["produto_id"]],
+                            quantidade=item["quantidade"],
+                            preco_unitario=produtos[item["produto_id"]].preco_venda,
+                        )
+                        for item in itens_payload
+                    ]
+                )
+                for item in itens_payload:
+                    produto = produtos[item["produto_id"]]
+                    if produto.controla_estoque:
+                        apply_stock_movement(
+                            produto,
+                            MovimentacaoEstoque.Tipo.VENDA,
+                            Decimal(item["quantidade"]),
+                            f"Baixa automatica da venda {venda.codigo}",
+                        )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         venda = VendaCaixa.objects.prefetch_related(
             Prefetch(

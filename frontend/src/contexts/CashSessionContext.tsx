@@ -35,7 +35,7 @@ const closedSession: CashSession = {
     openingFundNumber: 0,
     openedAt: null,
     closedAt: null,
-    openedBy: "Ricardo Silva",
+    openedBy: "Operador do Caixa",
     closingCashCounted: null,
     closingPixCounted: null,
     closingDebitCounted: null,

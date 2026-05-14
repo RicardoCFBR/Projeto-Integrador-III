@@ -27,6 +27,7 @@ import {
     type CashSale,
     type CashSalePaymentMethod,
 } from "../services/barControlApi";
+import { printCashSaleReceipt } from "../utils/printTemplates";
 
 type HistoryPeriod = "hoje" | "ontem" | "ultimos_7_dias" | "personalizado";
 type PaymentFilter = CashSalePaymentMethod | "all";
@@ -74,6 +75,7 @@ export function SalesHistoryPage() {
     async function openSaleDetail(saleId: number) {
         try {
             setDetailLoading(true);
+            setPageError(null);
             const response = await getCashSaleDetail(saleId);
             setSelectedSale(response);
         } catch (requestError) {
@@ -375,7 +377,16 @@ export function SalesHistoryPage() {
                     )}
                 </DialogContent>
                 <DialogActions>
-                    <Button disabled>Reimprimir</Button>
+                    <Button
+                        disabled={detailLoading || selectedSale === null}
+                        onClick={() => {
+                            if (selectedSale) {
+                                printCashSaleReceipt(selectedSale);
+                            }
+                        }}
+                    >
+                        Reimprimir
+                    </Button>
                     <Button onClick={() => setSelectedSale(null)}>Fechar</Button>
                 </DialogActions>
             </Dialog>

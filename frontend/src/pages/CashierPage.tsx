@@ -70,6 +70,10 @@ function resolveCashierProductPresentation(product: Product) {
     }
 }
 
+function isProductOutOfStock(product: Product) {
+    return product.controlsStock && product.currentStock <= 0;
+}
+
 function buildOperationCode() {
     const now = new Date();
     const year = now.getFullYear();
@@ -213,9 +217,18 @@ export function CashierPage() {
     function addToCart(product: Product) {
         setCart((currentCart) => {
             const existingItem = currentCart.find((item) => item.id === product.id);
+            const maxQuantity = product.controlsStock ? Math.max(0, Math.floor(product.currentStock)) : Number.POSITIVE_INFINITY;
+
+            if (maxQuantity <= 0) {
+                return currentCart;
+            }
 
             if (!existingItem) {
                 return [...currentCart, { ...product, quantity: 1 }];
+            }
+
+            if (existingItem.quantity >= maxQuantity) {
+                return currentCart;
             }
 
             return currentCart.map((item) =>
@@ -226,9 +239,18 @@ export function CashierPage() {
 
     function incrementCartItem(productId: number) {
         setCart((currentCart) =>
-            currentCart.map((item) =>
-                item.id === productId ? { ...item, quantity: item.quantity + 1 } : item,
-            ),
+            currentCart.map((item) => {
+                if (item.id !== productId) {
+                    return item;
+                }
+
+                const maxQuantity = item.controlsStock ? Math.max(0, Math.floor(item.currentStock)) : Number.POSITIVE_INFINITY;
+                if (item.quantity >= maxQuantity) {
+                    return item;
+                }
+
+                return { ...item, quantity: item.quantity + 1 };
+            }),
         );
     }
 
@@ -482,6 +504,11 @@ export function CashierPage() {
                                                 <Typography color="text.secondary">
                                                     {product.description || product.categoryName}
                                                 </Typography>
+                                                {isProductOutOfStock(product) ? (
+                                                    <Typography color="error" sx={{ fontSize: "0.75rem", mt: 0.5, fontWeight: 700 }}>
+                                                        Sem estoque disponivel
+                                                    </Typography>
+                                                ) : null}
                                             </Box>
 
                                             <Stack
@@ -502,10 +529,15 @@ export function CashierPage() {
 
                                                 <IconButton
                                                     aria-label={`Adicionar ${product.name}`}
+                                                    disabled={isProductOutOfStock(product)}
                                                     onClick={() => addToCart(product)}
                                                     sx={{
                                                         bgcolor: "primary.main",
                                                         color: "primary.contrastText",
+                                                        "&.Mui-disabled": {
+                                                            bgcolor: "rgba(117, 124, 123, 0.16)",
+                                                            color: "rgba(36, 49, 50, 0.32)",
+                                                        },
                                                         "&:hover": {
                                                             bgcolor: "primary.dark",
                                                         },
@@ -604,6 +636,7 @@ export function CashierPage() {
                                             aria-label={`Aumentar ${item.name}`}
                                             color="inherit"
                                             onClick={() => incrementCartItem(item.id)}
+                                            disabled={item.controlsStock && item.quantity >= Math.max(0, Math.floor(item.currentStock))}
                                             size="small"
                                             sx={{
                                                 width: 32,
@@ -611,6 +644,9 @@ export function CashierPage() {
                                                 bgcolor: "#eef3f1",
                                                 color: "text.primary",
                                                 borderRadius: "8px",
+                                                "&.Mui-disabled": {
+                                                    opacity: 0.4,
+                                                },
                                             }}
                                         >
                                             <AddRoundedIcon fontSize="small" />

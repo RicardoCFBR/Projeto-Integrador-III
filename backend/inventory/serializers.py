@@ -260,7 +260,7 @@ class SessaoCaixaAberturaSerializer(serializers.Serializer):
 
     def validate_operador_nome(self, value):
         cleaned_value = value.strip()
-        return cleaned_value or "Ricardo Silva"
+        return cleaned_value or "Operador do Caixa"
 
 
 class MovimentacaoCaixaCreateSerializer(serializers.Serializer):
@@ -365,6 +365,7 @@ class VendaCaixaSerializer(serializers.ModelSerializer):
     itens = ItemVendaCaixaSerializer(many=True, read_only=True)
     comanda_id = serializers.IntegerField(source="comanda.id", read_only=True)
     comanda_codigo = serializers.CharField(source="comanda.codigo", read_only=True)
+    comanda_nome_cliente = serializers.CharField(source="comanda.nome_cliente", read_only=True)
 
     class Meta:
         model = VendaCaixa
@@ -383,6 +384,7 @@ class VendaCaixaSerializer(serializers.ModelSerializer):
             "itens",
             "comanda_id",
             "comanda_codigo",
+            "comanda_nome_cliente",
         ]
 
 

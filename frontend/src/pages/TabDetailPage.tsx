@@ -50,6 +50,7 @@ import {
     type Product,
     type TabDetail,
 } from "../services/barControlApi";
+import { printTabConference } from "../utils/printTemplates";
 
 type ProductCard = Product & {
     icon: ReactNode;
@@ -78,6 +79,10 @@ function resolveProductPresentation(product: Product) {
         default:
             return { icon: <Inventory2RoundedIcon fontSize="large" />, tone: "#f2f4f7" };
     }
+}
+
+function isProductOutOfStock(product: Product) {
+    return product.controlsStock && product.currentStock <= 0;
 }
 
 export function TabDetailPage() {
@@ -337,6 +342,12 @@ export function TabDetailPage() {
 
     async function handleAddProduct(productId: number) {
         if (!params.tabId || isNewTab) {
+            return;
+        }
+
+        const product = products.find((currentProduct) => currentProduct.id === productId);
+        if (product && isProductOutOfStock(product)) {
+            setPageError(`O produto ${product.name} esta sem estoque disponivel no momento.`);
             return;
         }
 
@@ -712,6 +723,11 @@ export function TabDetailPage() {
                                             <Typography color="text.secondary">
                                                 {product.description || product.categoryName}
                                             </Typography>
+                                            {isProductOutOfStock(product) ? (
+                                                <Typography color="error" sx={{ fontSize: "0.75rem", mt: 0.5, fontWeight: 700 }}>
+                                                    Sem estoque disponivel
+                                                </Typography>
+                                            ) : null}
                                         </Box>
 
                                         <Stack
@@ -732,7 +748,7 @@ export function TabDetailPage() {
 
                                             <IconButton
                                                 aria-label={`Adicionar ${product.name}`}
-                                                disabled={interactionsDisabled}
+                                                disabled={interactionsDisabled || isProductOutOfStock(product)}
                                                 onClick={() => void handleAddProduct(product.id)}
                                                 sx={{
                                                     bgcolor: "primary.main",
@@ -1005,7 +1021,17 @@ export function TabDetailPage() {
                                       : "Fechar Comanda / Ir para Pagamento"}
                             </Button>
 
-                            <Button fullWidth startIcon={<PrintRoundedIcon />} variant="text">
+                            <Button
+                                fullWidth
+                                startIcon={<PrintRoundedIcon />}
+                                variant="text"
+                                disabled={isNewTab || currentTab === null}
+                                onClick={() => {
+                                    if (currentTab) {
+                                        printTabConference(currentTab);
+                                    }
+                                }}
+                            >
                                 Imprimir Conferencia
                             </Button>
                         </Stack>
