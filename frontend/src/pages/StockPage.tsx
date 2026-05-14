@@ -15,6 +15,7 @@ import {
     DialogTitle,
     FormControlLabel,
     IconButton,
+    InputAdornment,
     MenuItem,
     Paper,
     Stack,
@@ -83,6 +84,19 @@ const emptyProductForm: StockProductInput = {
     isActive: true,
 };
 
+function formatPriceInput(value: number) {
+    return value.toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
+
+function parsePriceInput(value: string) {
+    const normalized = value.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
+    const parsed = Number.parseFloat(normalized);
+    return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 function getStockLevel(product: StockProduct) {
     if (!product.controlsStock) return { label: "Não controlado", percent: 100, color: "#94a3b8" };
     if (product.minimumStock <= 0) {
@@ -139,6 +153,7 @@ export function StockPage() {
     const [editingProduct, setEditingProduct] = useState<StockProduct | null>(null);
     const [historyProduct, setHistoryProduct] = useState<StockProduct | null>(null);
     const [productForm, setProductForm] = useState<StockProductInput>(emptyProductForm);
+    const [priceInput, setPriceInput] = useState(formatPriceInput(0));
     const [movementForm, setMovementForm] = useState({
         productId: 0,
         type: "entrada" as Exclude<StockMovementType, "venda">,
@@ -205,6 +220,7 @@ export function StockPage() {
     function openCreateDialog() {
         setEditingProduct(null);
         setProductForm(emptyProductForm);
+        setPriceInput(formatPriceInput(0));
         setProductDialogOpen(true);
     }
 
@@ -222,14 +238,20 @@ export function StockPage() {
             minimumStock: product.minimumStock,
             isActive: product.isActive,
         });
+        setPriceInput(formatPriceInput(product.priceNumber));
         setProductDialogOpen(true);
     }
 
     async function handleSaveProduct() {
         try {
             setSaving(true);
-            if (editingProduct) await updateStockProduct(editingProduct.id, productForm);
-            else await createStockProduct(productForm);
+            const normalizedProductForm = {
+                ...productForm,
+                price: parsePriceInput(priceInput),
+            };
+
+            if (editingProduct) await updateStockProduct(editingProduct.id, normalizedProductForm);
+            else await createStockProduct(normalizedProductForm);
             setProductDialogOpen(false);
             await loadData();
         } catch (error) {
@@ -431,7 +453,27 @@ export function StockPage() {
                         <TextField label="Nome" value={productForm.name} onChange={(e) => setProductForm((current) => ({ ...current, name: e.target.value }))} />
                         <TextField label="Descrição" value={productForm.description} onChange={(e) => setProductForm((current) => ({ ...current, description: e.target.value }))} />
                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                            <TextField label="Preço" type="number" fullWidth value={productForm.price} onChange={(e) => setProductForm((current) => ({ ...current, price: Number(e.target.value) }))} />
+                            <TextField
+                                label="Preço"
+                                fullWidth
+                                value={priceInput}
+                                onChange={(e) => {
+                                    const nextValue = e.target.value.replace(/[^\d,.-]/g, "");
+                                    setPriceInput(nextValue);
+                                    setProductForm((current) => ({
+                                        ...current,
+                                        price: parsePriceInput(nextValue),
+                                    }));
+                                }}
+                                onBlur={() => setPriceInput(formatPriceInput(parsePriceInput(priceInput)))}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Typography sx={{ fontWeight: 800, color: "primary.main" }}>R$</Typography>
+                                        </InputAdornment>
+                                    ),
+                                }}
+                            />
                             <TextField select label="Categoria" fullWidth value={productForm.categoryId ?? ""} onChange={(e) => setProductForm((current) => ({ ...current, categoryId: e.target.value === "" ? null : Number(e.target.value) }))}>
                                 <MenuItem value="">Sem categoria</MenuItem>
                                 {categories.map((category) => <MenuItem key={category.id} value={category.id}>{category.name}</MenuItem>)}

@@ -332,6 +332,9 @@ export function CashierOverviewPage() {
                 <DialogContent>
                     <Stack spacing={2.5} sx={{ pt: 1 }}>
                         <Typography color="text.secondary">Informe os valores conferidos no fechamento. O sistema compara o esperado com o valor contado por meio de pagamento.</Typography>
+                        <Typography color="text.secondary" sx={{ fontSize: "0.85rem" }}>
+                            Diferenças de sobra ou falta não impedem o fechamento. Para retiradas operacionais de dinheiro, o fluxo correto é registrar uma sangria antes de fechar o caixa.
+                        </Typography>
                         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }, gap: 1.5 }}>
                             <Paper elevation={0} sx={{ p: 2, borderRadius: "12px", bgcolor: "var(--surface-soft)" }}><Typography color="text.secondary" sx={{ fontSize: "0.8rem" }}>Esperado em Dinheiro</Typography><Typography variant="h6">{summary.expectedCash}</Typography></Paper>
                             <Paper elevation={0} sx={{ p: 2, borderRadius: "12px", bgcolor: "var(--surface-soft)" }}><Typography color="text.secondary" sx={{ fontSize: "0.8rem" }}>Esperado em Pix</Typography><Typography variant="h6">{summary.expectedPix}</Typography></Paper>
