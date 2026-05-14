@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import (
@@ -15,6 +16,8 @@ from .models import (
     SessaoCaixa,
     VendaCaixa,
 )
+
+User = get_user_model()
 
 
 class CategoriaProdutoSerializer(serializers.ModelSerializer):
@@ -425,6 +428,33 @@ class VendaCaixaCreateSerializer(serializers.Serializer):
             )
 
         return attrs
+
+
+class AuthLoginSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(max_length=128, trim_whitespace=False)
+
+
+class AuthUserSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    initials = serializers.SerializerMethodField()
+
+    def get_full_name(self, obj):
+        full_name = obj.get_full_name().strip()
+        return full_name or obj.username
+
+    def get_initials(self, obj):
+        full_name = self.get_full_name(obj)
+        parts = [part for part in full_name.split() if part]
+        if not parts:
+            return obj.username[:2].upper()
+        if len(parts) == 1:
+            return parts[0][:2].upper()
+        return f"{parts[0][0]}{parts[-1][0]}".upper()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "first_name", "last_name", "full_name", "email", "is_staff", "initials"]
 
 
 class ComandaPagamentoSerializer(serializers.Serializer):

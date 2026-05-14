@@ -1,10 +1,28 @@
-import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
-import { AppBar, Avatar, Box, Chip, IconButton, Toolbar, Typography } from "@mui/material";
+import { useState } from "react";
 
+import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import {
+    AppBar,
+    Avatar,
+    Box,
+    Chip,
+    IconButton,
+    Menu,
+    MenuItem,
+    Toolbar,
+    Typography,
+} from "@mui/material";
+
+import { useAuth } from "../../contexts/AuthContext";
 import { useCashSession } from "../../contexts/CashSessionContext";
 
 export function Topbar() {
     const { isCashOpen } = useCashSession();
+    const { user, logoutUser } = useAuth();
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+    const avatarMenuOpen = Boolean(anchorEl);
 
     return (
         <AppBar
@@ -67,25 +85,49 @@ export function Topbar() {
                                 lineHeight: 1.2,
                             }}
                         >
-                            Gerente Bar
+                            {user?.fullName ?? "Operador"}
                         </Typography>
                         <Typography color="text.secondary" sx={{ fontSize: "0.76rem" }}>
-                            Turno: Noite
+                            {user?.isStaff ? "Perfil: Gerente" : "Perfil: Operador"}
                         </Typography>
                     </Box>
 
-                    <Avatar
-                        sx={{
-                            width: 40,
-                            height: 40,
-                            bgcolor: "#20492c",
-                            fontSize: "0.75rem",
-                            fontWeight: 800,
+                    <IconButton
+                        aria-label="Abrir menu do usuário"
+                        onClick={(event) => setAnchorEl(event.currentTarget)}
+                        sx={{ p: 0 }}
+                    >
+                        <Avatar
+                            sx={{
+                                width: 40,
+                                height: 40,
+                                bgcolor: "#20492c",
+                                fontSize: "0.75rem",
+                                fontWeight: 800,
+                            }}
+                        >
+                            {user?.initials ?? "BC"}
+                        </Avatar>
+                    </IconButton>
+                </Box>
+
+                <Menu
+                    anchorEl={anchorEl}
+                    open={avatarMenuOpen}
+                    onClose={() => setAnchorEl(null)}
+                    transformOrigin={{ horizontal: "right", vertical: "top" }}
+                    anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+                >
+                    <MenuItem
+                        onClick={async () => {
+                            setAnchorEl(null);
+                            await logoutUser();
                         }}
                     >
-                        RB
-                    </Avatar>
-                </Box>
+                        <LogoutRoundedIcon fontSize="small" sx={{ mr: 1 }} />
+                        Sair
+                    </MenuItem>
+                </Menu>
             </Toolbar>
         </AppBar>
     );

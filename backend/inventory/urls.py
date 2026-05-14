@@ -2,6 +2,9 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    AuthLoginView,
+    AuthLogoutView,
+    AuthMeView,
     CashCloseView,
     CashSaleDetailView,
     CashSaleHistoryView,
@@ -34,6 +37,9 @@ router.register("comandas", ComandaViewSet, basename="comandas")
 router.register("itens-comanda", ItemComandaViewSet, basename="itens-comanda")
 
 urlpatterns = [
+    path("auth/login/", AuthLoginView.as_view(), name="auth-login"),
+    path("auth/me/", AuthMeView.as_view(), name="auth-me"),
+    path("auth/logout/", AuthLogoutView.as_view(), name="auth-logout"),
     path("caixa/visao-geral/", CashOverviewView.as_view(), name="cash-overview"),
     path("caixa/abrir/", CashOpenView.as_view(), name="cash-open"),
     path("caixa/fechar/", CashCloseView.as_view(), name="cash-close"),

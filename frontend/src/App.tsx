@@ -12,12 +12,14 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { Sidebar } from "./components/layout/Sidebar";
 import { Topbar } from "./components/layout/Topbar";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CashSessionProvider, useCashSession } from "./contexts/CashSessionContext";
 import { TabsProvider } from "./contexts/TabsContext";
 import { DashboardPage } from "./pages/DashboardPage";
 import { CashierPage } from "./pages/CashierPage";
 import { CashierOverviewPage } from "./pages/CashierOverviewPage";
 import { FinancePage } from "./pages/FinancePage";
+import { LoginPage } from "./pages/LoginPage";
 import { StockPage } from "./pages/StockPage";
 import { SalesHistoryPage } from "./pages/SalesHistoryPage";
 import { TabDetailPage } from "./pages/TabDetailPage";
@@ -95,6 +97,24 @@ function HomeRoute() {
     return <Navigate replace to={isCashOpen ? "/comandas" : "/caixa"} />;
 }
 
+function AuthenticatedOnlyRoute({ children }: { children: ReactElement }) {
+    const { isAuthenticated, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+                <CircularProgress size={30} />
+            </Box>
+        );
+    }
+
+    if (!isAuthenticated) {
+        return <Navigate replace to="/login" />;
+    }
+
+    return children;
+}
+
 function CashEnabledRoute({ children }: { children: ReactElement }) {
     const { isCashOpen, loading } = useCashSession();
 
@@ -113,63 +133,99 @@ function CashEnabledRoute({ children }: { children: ReactElement }) {
     return children;
 }
 
+function LoginOnlyRoute() {
+    const { isAuthenticated, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+                <CircularProgress size={30} />
+            </Box>
+        );
+    }
+
+    if (isAuthenticated) {
+        return <Navigate replace to="/" />;
+    }
+
+    return <LoginPage />;
+}
+
+function AuthenticatedAppShell() {
+    return (
+        <CashSessionProvider>
+            <TabsProvider>
+                <Box
+                    sx={{
+                        minHeight: "100vh",
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", md: "280px minmax(0, 1fr)" },
+                    }}
+                >
+                    <Sidebar />
+
+                    <Box sx={{ minWidth: 0 }}>
+                        <Topbar />
+
+                        <Box component="main" className="app-shell__main">
+                            <Routes>
+                                <Route element={<HomeRoute />} path="/" />
+                                <Route
+                                    element={
+                                        <CashEnabledRoute>
+                                            <TabsPage />
+                                        </CashEnabledRoute>
+                                    }
+                                    path="/comandas"
+                                />
+                                <Route
+                                    element={
+                                        <CashEnabledRoute>
+                                            <TabDetailPage />
+                                        </CashEnabledRoute>
+                                    }
+                                    path="/comandas/:tabId"
+                                />
+                                <Route element={<CashierOverviewPage />} path="/caixa" />
+                                <Route element={<FinancePage />} path="/financeiro" />
+                                <Route element={<StockPage />} path="/estoque" />
+                                <Route element={<SalesHistoryPage />} path="/historico-vendas" />
+                                <Route
+                                    element={
+                                        <CashEnabledRoute>
+                                            <CashierPage />
+                                        </CashEnabledRoute>
+                                    }
+                                    path="/caixa/nova-venda"
+                                />
+                                <Route element={<DashboardPage />} path="/dashboard" />
+                                <Route element={<Navigate replace to="/" />} path="*" />
+                            </Routes>
+                        </Box>
+                    </Box>
+                </Box>
+            </TabsProvider>
+        </CashSessionProvider>
+    );
+}
+
 export default function App() {
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
-
-            <CashSessionProvider>
-                <TabsProvider>
-                    <Box
-                        sx={{
-                            minHeight: "100vh",
-                            display: "grid",
-                            gridTemplateColumns: { xs: "1fr", md: "280px minmax(0, 1fr)" },
-                        }}
-                    >
-                        <Sidebar />
-
-                        <Box sx={{ minWidth: 0 }}>
-                            <Topbar />
-
-                            <Box component="main" className="app-shell__main">
-                                <Routes>
-                                    <Route element={<HomeRoute />} path="/" />
-                                    <Route
-                                        element={
-                                            <CashEnabledRoute>
-                                                <TabsPage />
-                                            </CashEnabledRoute>
-                                        }
-                                        path="/comandas"
-                                    />
-                                    <Route
-                                        element={
-                                            <CashEnabledRoute>
-                                                <TabDetailPage />
-                                            </CashEnabledRoute>
-                                        }
-                                        path="/comandas/:tabId"
-                                    />
-                                    <Route element={<CashierOverviewPage />} path="/caixa" />
-                                    <Route element={<FinancePage />} path="/financeiro" />
-                                    <Route element={<StockPage />} path="/estoque" />
-                                    <Route element={<SalesHistoryPage />} path="/historico-vendas" />
-                                    <Route
-                                        element={
-                                            <CashEnabledRoute>
-                                                <CashierPage />
-                                            </CashEnabledRoute>
-                                        }
-                                        path="/caixa/nova-venda"
-                                    />
-                                    <Route element={<DashboardPage />} path="/dashboard" />
-                                </Routes>
-                            </Box>
-                        </Box>
-                    </Box>
-                </TabsProvider>
-            </CashSessionProvider>
+            <AuthProvider>
+                <Routes>
+                    <Route element={<LoginOnlyRoute />} path="/login" />
+                    <Route
+                        path="*"
+                        element={
+                            <AuthenticatedOnlyRoute>
+                                <AuthenticatedAppShell />
+                            </AuthenticatedOnlyRoute>
+                        }
+                    />
+                </Routes>
+            </AuthProvider>
         </ThemeProvider>
     );
 }

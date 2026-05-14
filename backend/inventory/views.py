@@ -1,12 +1,15 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from django.contrib.auth import authenticate, get_user_model
 from django.db import transaction
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Sum
 from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
 from rest_framework import status, viewsets
+from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -25,6 +28,8 @@ from .models import (
 )
 from .serializers import (
     CategoriaProdutoSerializer,
+    AuthLoginSerializer,
+    AuthUserSerializer,
     ComandaAberturaSerializer,
     ComandaDetailSerializer,
     ComandaMuralSerializer,
@@ -46,6 +51,8 @@ from .serializers import (
     VendaCaixaCreateSerializer,
     VendaCaixaSerializer,
 )
+
+User = get_user_model()
 
 
 def build_total_expression():
@@ -236,6 +243,19 @@ def apply_date_filters(queryset, field_name, request):
     return queryset
 
 
+def ensure_default_operator_user():
+    if User.objects.exists():
+        return
+
+    User.objects.create_superuser(
+        username="admin",
+        password="admin123",
+        first_name="Ricardo",
+        last_name="BarControl",
+        email="admin@barcontrol.local",
+    )
+
+
 def apply_stock_movement(produto, tipo, quantidade, observacao=""):
     produto.refresh_from_db(fields=["estoque_atual"])
 
@@ -257,6 +277,49 @@ def apply_stock_movement(produto, tipo, quantidade, observacao=""):
         quantidade=quantidade,
         observacao=observacao,
     )
+
+
+class AuthLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        ensure_default_operator_user()
+
+        serializer = AuthLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = authenticate(
+            request,
+            username=serializer.validated_data["username"],
+            password=serializer.validated_data["password"],
+        )
+
+        if user is None or not user.is_active:
+            return Response(
+                {"detail": "Usuario ou senha invalidos."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        Token.objects.filter(user=user).delete()
+        token = Token.objects.create(user=user)
+
+        return Response(
+            {
+                "token": token.key,
+                "user": AuthUserSerializer(user).data,
+            }
+        )
+
+
+class AuthMeView(APIView):
+    def get(self, request):
+        return Response(AuthUserSerializer(request.user).data)
+
+
+class AuthLogoutView(APIView):
+    def post(self, request):
+        Token.objects.filter(user=request.user).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CategoriaProdutoViewSet(viewsets.ModelViewSet):

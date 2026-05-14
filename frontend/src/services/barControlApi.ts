@@ -1,4 +1,16 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api";
+const AUTH_TOKEN_STORAGE_KEY = "barcontrol.auth.token";
+
+export type AuthUser = {
+    id: number;
+    username: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+    isStaff: boolean;
+    initials: string;
+};
 
 export type TabStatus = "open" | "closed";
 export type CashSessionStatus = "open" | "closed";
@@ -487,6 +499,22 @@ type ApiFinanceSummary = {
     };
 };
 
+type ApiAuthUser = {
+    id: number;
+    username: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    email: string;
+    is_staff: boolean;
+    initials: string;
+};
+
+type ApiAuthLoginResponse = {
+    token: string;
+    user: ApiAuthUser;
+};
+
 type ApiFinanceOperation = {
     tipo: "venda" | "movimentacao";
     codigo: string;
@@ -560,15 +588,21 @@ function buildUrl(path: string) {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+    const token = typeof window === "undefined" ? null : window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
     const response = await fetch(buildUrl(path), {
         headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Token ${token}` } : {}),
             ...(init?.headers ?? {}),
         },
         ...init,
     });
 
     if (!response.ok) {
+        if (response.status === 401) {
+            setStoredAuthToken(null);
+        }
+
         let errorMessage = "Nao foi possivel concluir a requisicao.";
 
         try {
@@ -606,6 +640,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
 
     return response.json() as Promise<T>;
+}
+
+function mapAuthUser(user: ApiAuthUser): AuthUser {
+    return {
+        id: user.id,
+        username: user.username,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        fullName: user.full_name,
+        email: user.email,
+        isStaff: user.is_staff,
+        initials: user.initials,
+    };
+}
+
+export function getStoredAuthToken() {
+    return typeof window === "undefined" ? null : window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+}
+
+export function setStoredAuthToken(token: string | null) {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    if (token) {
+        window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+        return;
+    }
+
+    window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
 }
 
 function formatCurrency(value: number) {
@@ -1181,6 +1245,49 @@ function mapStockMovement(movement: ApiStockMovement): StockMovement {
 export async function listTabsMural() {
     const response = await request<ApiTabSummary[]>("/comandas/mural/");
     return response.map(mapTabSummary);
+}
+
+export async function login(input: { username: string; password: string }) {
+    const response = await fetch(buildUrl("/auth/login/"), {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+        let errorMessage = "Nao foi possivel autenticar.";
+        try {
+            const errorBody = await response.json();
+            if (typeof errorBody.detail === "string") {
+                errorMessage = errorBody.detail;
+            }
+        } catch {
+            errorMessage = `Erro HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+    }
+
+    const payload = (await response.json()) as ApiAuthLoginResponse;
+    setStoredAuthToken(payload.token);
+    return {
+        token: payload.token,
+        user: mapAuthUser(payload.user),
+    };
+}
+
+export async function getCurrentUser() {
+    const response = await request<ApiAuthUser>("/auth/me/");
+    return mapAuthUser(response);
+}
+
+export async function logout() {
+    try {
+        await request<null>("/auth/logout/", { method: "POST" });
+    } finally {
+        setStoredAuthToken(null);
+    }
 }
 
 export async function getTabDetail(tabId: string) {
