@@ -1,177 +1,508 @@
-import { useEffect, useState } from "react";
+import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
+import PointOfSaleRoundedIcon from "@mui/icons-material/PointOfSaleRounded";
+import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
+import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
-} from "recharts";
+    Box,
+    Button,
+    Chip,
+    CircularProgress,
+    LinearProgress,
+    Paper,
+    Stack,
+    Typography,
+} from "@mui/material";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-type DashboardData = {
-    totais: {
-        produtos: number;
-        comandas_abertas: number;
-        pedidos: number;
-        vendas: number | string;
-    };
-    vendas_por_dia: Array<{
-        dia: string;
-        total: number | string;
-    }>;
+import {
+    getDashboardSummary,
+    getFinanceCharts,
+    getFinanceSummary,
+    listStockProducts,
+    type DashboardSummary,
+    type FinancePaymentDistributionPoint,
+    type FinanceSummary,
+    type StockProduct,
+} from "../services/barControlApi";
+
+const emptySummary: DashboardSummary = {
+    totalCategories: 0,
+    totalProducts: 0,
+    totalStockItems: 0,
+    openTabsCount: 0,
+    launchedItemsCount: 0,
+    totalSales: "R$ 0,00",
+    totalSalesNumber: 0,
+    salesByDay: [],
 };
 
-const API_URL = "http://127.0.0.1:8000/api/dashboard/";
+const emptyFinanceSummary: FinanceSummary = {
+    totalSold: "R$ 0,00",
+    totalSoldNumber: 0,
+    totalCash: "R$ 0,00",
+    totalCashNumber: 0,
+    totalPix: "R$ 0,00",
+    totalPixNumber: 0,
+    totalDebit: "R$ 0,00",
+    totalDebitNumber: 0,
+    totalCredit: "R$ 0,00",
+    totalCreditNumber: 0,
+    totalWithdrawals: "R$ 0,00",
+    totalWithdrawalsNumber: 0,
+    totalSupplies: "R$ 0,00",
+    totalSuppliesNumber: 0,
+    averageTicket: "R$ 0,00",
+    averageTicketNumber: 0,
+    salesCount: 0,
+    closedSessionsCount: 0,
+    totalDifferences: "R$ 0,00",
+    totalDifferencesNumber: 0,
+};
 
-function formatCurrency(value: number | string) {
-    return new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-    }).format(Number(value || 0));
+const paymentChartColors: Record<FinancePaymentDistributionPoint["paymentMethod"], string> = {
+    cash: "#2E7D32",
+    pix: "#0288D1",
+    debit: "#F9A825",
+    credit: "#8E24AA",
+};
+
+function getStockRatio(product: StockProduct) {
+    if (product.minimumStock <= 0) {
+        return product.currentStock > 0 ? 100 : 0;
+    }
+
+    return Math.max(0, Math.min((product.currentStock / product.minimumStock) * 100, 100));
+}
+
+function getStockPriority(product: StockProduct) {
+    const ratio = getStockRatio(product);
+
+    if (ratio <= 10) return { label: "Crítico", color: "#b42318", tone: "#fdecea" };
+    if (ratio <= 25) return { label: "Reposição Imediata", color: "#f57c00", tone: "#fff3e0" };
+    return { label: "Estável", color: "#2e7d32", tone: "#edf7ed" };
+}
+
+function DashboardMetricCard({
+    icon,
+    title,
+    value,
+    helper,
+    badge,
+    badgeTone = "success",
+}: {
+    icon: ReactNode;
+    title: string;
+    value: string;
+    helper: string;
+    badge?: string;
+    badgeTone?: "success" | "warning" | "info";
+}) {
+    const badgeStyles =
+        badgeTone === "warning"
+            ? { bgcolor: "#fff3e0", color: "#f57c00" }
+            : badgeTone === "info"
+              ? { bgcolor: "#eef4ff", color: "#0062a5" }
+              : { bgcolor: "#edf7ed", color: "#2e7d32" };
+
+    return (
+        <Paper elevation={0} sx={{ p: 3, borderRadius: "20px", bgcolor: "background.paper", boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)" }}>
+            <Stack spacing={2}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                    <Box sx={{ width: 44, height: 44, display: "grid", placeItems: "center", borderRadius: "14px", bgcolor: "#f3f8f6", color: "primary.main" }}>
+                        {icon}
+                    </Box>
+                    {badge ? <Chip label={badge} size="small" sx={{ borderRadius: "999px", fontWeight: 800, ...badgeStyles }} /> : null}
+                </Stack>
+                <Box>
+                    <Typography sx={{ mb: 0.75, fontSize: "0.75rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "text.secondary" }}>
+                        {title}
+                    </Typography>
+                    <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: "2rem", fontWeight: 800, lineHeight: 1.05, color: "#1f2937" }}>
+                        {value}
+                    </Typography>
+                </Box>
+                <Typography color="text.secondary" sx={{ fontSize: "0.82rem" }}>
+                    {helper}
+                </Typography>
+            </Stack>
+        </Paper>
+    );
 }
 
 export function DashboardPage() {
-    const [data, setData] = useState<DashboardData | null>(null);
+    const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(emptySummary);
+    const [financeSummary, setFinanceSummary] = useState<FinanceSummary>(emptyFinanceSummary);
+    const [paymentDistribution, setPaymentDistribution] = useState<FinancePaymentDistributionPoint[]>([]);
+    const [stockProducts, setStockProducts] = useState<StockProduct[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const controller = new AbortController();
+        let cancelled = false;
 
-        async function loadDashboard() {
+        async function loadDashboardData() {
             try {
                 setLoading(true);
-                setError("");
+                setError(null);
 
-                const response = await fetch(API_URL, {
-                    signal: controller.signal,
-                });
+                const [summaryResponse, financeSummaryResponse, financeChartsResponse, stockResponse] = await Promise.all([
+                    getDashboardSummary(),
+                    getFinanceSummary({ period: "hoje" }),
+                    getFinanceCharts({ period: "ultimos_7_dias" }),
+                    listStockProducts(),
+                ]);
 
-                if (!response.ok) {
-                    throw new Error("Nao foi possivel carregar o dashboard.");
-                }
+                if (cancelled) return;
 
-                const payload = (await response.json()) as DashboardData;
-                setData(payload);
-            } catch (caughtError) {
-                if (caughtError instanceof Error && caughtError.name === "AbortError") {
-                    return;
-                }
+                setDashboardSummary(summaryResponse);
+                setFinanceSummary(financeSummaryResponse);
+                setPaymentDistribution(financeChartsResponse.paymentDistribution);
+                setStockProducts(stockResponse);
+            } catch (requestError) {
+                if (cancelled) return;
 
                 setError(
-                    "A API ainda nao respondeu. Inicie o Django em http://127.0.0.1:8000.",
+                    requestError instanceof Error
+                        ? requestError.message
+                        : "Não foi possível carregar o painel de controle.",
                 );
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         }
 
-        void loadDashboard();
+        void loadDashboardData();
 
-        return () => controller.abort();
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
-    const metrics = [
-        {
-            label: "Produtos cadastrados",
-            value: data?.totais.produtos ?? 0,
-        },
-        {
-            label: "Comandas abertas",
-            value: data?.totais.comandas_abertas ?? 0,
-        },
-        {
-            label: "Pedidos registrados",
-            value: data?.totais.pedidos ?? 0,
-        },
-        {
-            label: "Venda acumulada",
-            value: formatCurrency(data?.totais.vendas ?? 0),
-        },
-    ];
+    const lowStockProducts = useMemo(
+        () =>
+            stockProducts
+                .filter((product) => product.controlsStock && product.isActive)
+                .sort((left, right) => getStockRatio(left) - getStockRatio(right))
+                .slice(0, 5),
+        [stockProducts],
+    );
 
-    const chartData = (data?.vendas_por_dia ?? []).map((item) => ({
-        dia: new Date(`${item.dia}T00:00:00`).toLocaleDateString("pt-BR", {
-            day: "2-digit",
-            month: "2-digit",
-        }),
-        total: Number(item.total),
-    }));
+    const donutTotal = useMemo(
+        () => paymentDistribution.reduce((accumulator, item) => accumulator + item.total, 0),
+        [paymentDistribution],
+    );
+
+    const currentDateLabel = new Date().toLocaleDateString("pt-BR", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+    });
+
+    const chartData = dashboardSummary.salesByDay;
 
     return (
-        <div className="page-stack">
-            <section className="dashboard-hero" aria-label="Resumo do dashboard">
-                <div>
-                    <h1>Dashboard</h1>
-                    <p style={{ marginTop: 20 }}>
-                        Veja os principais indicadores do sistema e o faturamento diario.
-                    </p>
-                </div>
-            </section>
+        <Stack spacing={3}>
+            <Stack
+                direction={{ xs: "column", lg: "row" }}
+                spacing={2}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", lg: "center" }}
+            >
+                <Box>
+                    <h1
+                        style={{
+                            margin: 0,
+                            color: "#4a76d6",
+                            fontSize: "clamp(2rem, 3vw, 3rem)",
+                            lineHeight: 1,
+                            letterSpacing: "-0.04em",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontWeight: 800,
+                        }}
+                    >
+                        Dashboard
+                    </h1>
+                    <Typography color="text.secondary" sx={{ mt: 2.5 }}>
+                        Visão operacional do dia com vendas, comandas e alertas de estoque em tempo
+                        real.
+                    </Typography>
+                </Box>
 
-            <section className="metrics-grid" aria-label="Indicadores principais">
-                {metrics.map((metric) => (
-                    <article className="metric-card" key={metric.label}>
-                        <p>{metric.label}</p>
-                        <strong>{metric.value}</strong>
-                    </article>
-                ))}
-            </section>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                    <Chip
+                        label={currentDateLabel}
+                        sx={{
+                            height: 42,
+                            borderRadius: "14px",
+                            bgcolor: "background.paper",
+                            border: "1px solid rgba(117, 124, 123, 0.14)",
+                            fontWeight: 700,
+                        }}
+                    />
+                    <Button
+                        component={Link}
+                        to="/financeiro"
+                        sx={{
+                            minHeight: 42,
+                            borderRadius: "14px",
+                            background: "linear-gradient(135deg, #55dc28 0%, #1c6d25 100%)",
+                            color: "#f7fff7",
+                        }}
+                        variant="contained"
+                    >
+                        Ver Financeiro
+                    </Button>
+                </Stack>
+            </Stack>
 
-            <section className="chart-panel" aria-labelledby="chart-title">
-                <div className="dashboard-hero">
-                    <div>
-                        <h2 id="chart-title">Faturamento diario</h2>
-                        <p>Os dados sao carregados a partir de `GET /api/dashboard/`.</p>
-                    </div>
-                </div>
+            {error ? (
+                <Paper elevation={0} sx={{ p: 3, borderRadius: "18px", bgcolor: "#fff4f2", color: "error.main" }}>
+                    <Typography sx={{ fontWeight: 800, mb: 0.5 }}>Erro ao carregar o painel</Typography>
+                    <Typography>{error}</Typography>
+                </Paper>
+            ) : null}
 
-                {loading ? (
-                    <div className="status-card loading" role="status">
-                        <strong>Carregando dados</strong>
-                        <p>Consultando a API do backend para montar o grafico.</p>
-                    </div>
-                ) : null}
+            {loading ? (
+                <Box sx={{ minHeight: "40vh", display: "grid", placeItems: "center" }}>
+                    <CircularProgress size={32} />
+                </Box>
+            ) : null}
 
-                {error ? (
-                    <div className="status-card error" role="alert">
-                        <strong>Backend indisponivel</strong>
-                        <p>{error}</p>
-                        <code>python manage.py runserver</code>
-                    </div>
-                ) : null}
+            {!loading ? (
+                <>
+                    <Box
+                        sx={{
+                            display: "grid",
+                            gridTemplateColumns: {
+                                xs: "1fr",
+                                md: "repeat(2, minmax(0, 1fr))",
+                                xl: "repeat(4, minmax(0, 1fr))",
+                            },
+                            gap: 2,
+                        }}
+                    >
+                        <DashboardMetricCard
+                            icon={<PointOfSaleRoundedIcon />}
+                            title="Venda acumulada"
+                            value={financeSummary.totalSold}
+                            helper={`${financeSummary.salesCount} vendas registradas hoje`}
+                            badge="Hoje"
+                        />
+                        <DashboardMetricCard
+                            icon={<ReceiptLongRoundedIcon />}
+                            title="Comandas abertas"
+                            value={String(dashboardSummary.openTabsCount)}
+                            helper={`${dashboardSummary.launchedItemsCount} itens lançados nas comandas`}
+                            badge="Operação"
+                            badgeTone="warning"
+                        />
+                        <DashboardMetricCard
+                            icon={<TrendingUpRoundedIcon />}
+                            title="Ticket médio"
+                            value={financeSummary.averageTicket}
+                            helper="Média atual das vendas concluídas"
+                            badge="Ao vivo"
+                            badgeTone="info"
+                        />
+                        <DashboardMetricCard
+                            icon={<Inventory2RoundedIcon />}
+                            title="Produtos controlados"
+                            value={String(stockProducts.length)}
+                            helper={`${lowStockProducts.length} itens exigem atenção imediata`}
+                            badge="Estoque"
+                        />
+                    </Box>
 
-                {!loading && !error ? (
-                    <div className="chart-frame" role="img" aria-label="Grafico de barras com vendas por dia">
-                        <ResponsiveContainer height="100%" width="100%">
-                            <BarChart data={chartData}>
-                                <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                                <XAxis dataKey="dia" stroke="#f6efe7" tickLine={false} />
-                                <YAxis
-                                    stroke="#f6efe7"
-                                    tickFormatter={(value) => `R$ ${value}`}
-                                    tickLine={false}
-                                />
-                                <Tooltip
-                                    contentStyle={{
-                                        background: "#120806",
-                                        border: "1px solid rgba(255,255,255,0.12)",
-                                        borderRadius: "16px",
-                                    }}
-                                    formatter={(value) => formatCurrency(Number(value))}
-                                />
-                                <Bar
-                                    dataKey="total"
-                                    fill="#f2a45c"
-                                    name="Venda"
-                                    radius={[10, 10, 0, 0]}
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                ) : null}
-            </section>
-        </div>
+                    <Box
+                        sx={{
+                            display: "grid",
+                            gridTemplateColumns: {
+                                xs: "1fr",
+                                xl: "minmax(0, 1.45fr) minmax(320px, 0.75fr)",
+                            },
+                            gap: 2,
+                        }}
+                    >
+                        <Paper elevation={0} sx={{ p: 3, borderRadius: "22px", bgcolor: "background.paper", boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)" }}>
+                            <Stack spacing={2}>
+                                <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5}>
+                                    <Box>
+                                        <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: "1.3rem", fontWeight: 800, color: "#0f172a" }}>
+                                            Fluxo de Faturamento
+                                        </Typography>
+                                        <Typography color="text.secondary">
+                                            Evolução das vendas lançadas por dia.
+                                        </Typography>
+                                    </Box>
+                                    <Chip label="Últimos dias" sx={{ alignSelf: "flex-start", bgcolor: "#f3f8f6", color: "#4a5a5b", fontWeight: 700 }} />
+                                </Stack>
+
+                                <Box sx={{ width: "100%", height: 340 }}>
+                                    <ResponsiveContainer>
+                                        <AreaChart data={chartData}>
+                                            <defs>
+                                                <linearGradient id="dashboard-sales-area" x1="0" x2="0" y1="0" y2="1">
+                                                    <stop offset="5%" stopColor="#55dc28" stopOpacity={0.34} />
+                                                    <stop offset="95%" stopColor="#55dc28" stopOpacity={0.02} />
+                                                </linearGradient>
+                                            </defs>
+                                            <XAxis dataKey="dateLabel" axisLine={false} tickLine={false} stroke="#94a3b8" />
+                                            <YAxis axisLine={false} tickLine={false} stroke="#94a3b8" tickFormatter={(value) => `R$ ${value}`} />
+                                            <Tooltip
+                                                formatter={(value) =>
+                                                    new Intl.NumberFormat("pt-BR", {
+                                                        style: "currency",
+                                                        currency: "BRL",
+                                                    }).format(Number(value))
+                                                }
+                                                contentStyle={{
+                                                    borderRadius: 16,
+                                                    border: "1px solid rgba(15, 23, 42, 0.08)",
+                                                    boxShadow: "0 16px 30px rgba(15, 23, 42, 0.12)",
+                                                }}
+                                            />
+                                            <Area type="monotone" dataKey="total" stroke="#55dc28" strokeWidth={3} fill="url(#dashboard-sales-area)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </Box>
+                            </Stack>
+                        </Paper>
+
+                        <Paper elevation={0} sx={{ p: 3, borderRadius: "22px", bgcolor: "background.paper", boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)" }}>
+                            <Stack spacing={2}>
+                                <Box>
+                                    <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: "1.3rem", fontWeight: 800, color: "#0f172a" }}>
+                                        Distribuição por Pagamento
+                                    </Typography>
+                                    <Typography color="text.secondary">
+                                        Participação de cada meio no faturamento do período.
+                                    </Typography>
+                                </Box>
+
+                                <Box sx={{ width: "100%", height: 260 }}>
+                                    <ResponsiveContainer>
+                                        <PieChart>
+                                            <Pie data={paymentDistribution} dataKey="total" innerRadius={70} outerRadius={96} paddingAngle={3} stroke="none">
+                                                {paymentDistribution.map((entry) => (
+                                                    <Cell key={entry.paymentMethod} fill={paymentChartColors[entry.paymentMethod]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip
+                                                formatter={(value, _name, item) => {
+                                                    const payload = item?.payload as FinancePaymentDistributionPoint | undefined;
+                                                    return [
+                                                        new Intl.NumberFormat("pt-BR", {
+                                                            style: "currency",
+                                                            currency: "BRL",
+                                                        }).format(Number(value)),
+                                                        payload?.paymentMethodLabel ?? "Pagamento",
+                                                    ];
+                                                }}
+                                            />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </Box>
+
+                                <Box sx={{ textAlign: "center", mt: -20 }}>
+                                    <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: "2rem", fontWeight: 800, lineHeight: 1 }}>
+                                        {new Intl.NumberFormat("pt-BR").format(Math.round(donutTotal))}
+                                    </Typography>
+                                    <Typography sx={{ mt: 0.5, fontSize: "0.72rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "text.secondary", fontWeight: 800 }}>
+                                        Volume financeiro
+                                    </Typography>
+                                </Box>
+
+                                <Stack spacing={1.25}>
+                                    {paymentDistribution.map((item) => (
+                                        <Stack key={item.paymentMethod} direction="row" justifyContent="space-between" alignItems="center">
+                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                <Box sx={{ width: 10, height: 10, borderRadius: "999px", bgcolor: paymentChartColors[item.paymentMethod] }} />
+                                                <Typography>{item.paymentMethodLabel}</Typography>
+                                            </Stack>
+                                            <Typography sx={{ fontWeight: 800 }}>
+                                                {item.percentage.toFixed(1)}%
+                                            </Typography>
+                                        </Stack>
+                                    ))}
+                                </Stack>
+                            </Stack>
+                        </Paper>
+                    </Box>
+
+                    <Paper elevation={0} sx={{ p: 3, borderRadius: "22px", bgcolor: "background.paper", boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)" }}>
+                        <Stack spacing={2.5}>
+                            <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5}>
+                                <Box>
+                                    <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: "1.3rem", fontWeight: 800, color: "#0f172a" }}>
+                                        Alertas de Estoque Crítico
+                                    </Typography>
+                                    <Typography color="text.secondary">
+                                        Itens com menor cobertura de estoque no momento.
+                                    </Typography>
+                                </Box>
+
+                                <Button component={Link} to="/estoque" variant="outlined">
+                                    Gerenciar Estoque
+                                </Button>
+                            </Stack>
+
+                            <Box sx={{ display: "grid", gridTemplateColumns: "minmax(180px, 1.5fr) minmax(120px, 1fr) minmax(180px, 1.2fr) minmax(150px, 1fr)", gap: 2, px: 1, color: "text.secondary", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                                <span>Item</span>
+                                <span>Categoria</span>
+                                <span>Cobertura</span>
+                                <span>Prioridade</span>
+                            </Box>
+
+                            <Stack spacing={1.5}>
+                                {lowStockProducts.length === 0 ? (
+                                    <Paper elevation={0} sx={{ p: 2.5, borderRadius: "16px", bgcolor: "#f8faf9", color: "text.secondary" }}>
+                                        Nenhum alerta crítico no momento.
+                                    </Paper>
+                                ) : (
+                                    lowStockProducts.map((product) => {
+                                        const ratio = getStockRatio(product);
+                                        const priority = getStockPriority(product);
+
+                                        return (
+                                            <Paper elevation={0} key={product.id} sx={{ p: 2, borderRadius: "16px", bgcolor: "#fbfdfc", border: "1px solid rgba(117, 124, 123, 0.10)" }}>
+                                                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(180px, 1.5fr) minmax(120px, 1fr) minmax(180px, 1.2fr) minmax(150px, 1fr)" }, gap: 2, alignItems: "center" }}>
+                                                    <Box>
+                                                        <Typography sx={{ fontWeight: 800 }}>{product.name}</Typography>
+                                                        <Typography color="text.secondary" sx={{ fontSize: "0.8rem" }}>{product.currentStockLabel}</Typography>
+                                                    </Box>
+                                                    <Typography>{product.categoryName}</Typography>
+                                                    <Stack spacing={0.75}>
+                                                        <LinearProgress
+                                                            variant="determinate"
+                                                            value={ratio}
+                                                            sx={{
+                                                                height: 8,
+                                                                borderRadius: "999px",
+                                                                bgcolor: "#edf2f1",
+                                                                "& .MuiLinearProgress-bar": {
+                                                                    borderRadius: "999px",
+                                                                    bgcolor: priority.color,
+                                                                },
+                                                            }}
+                                                        />
+                                                        <Typography color="text.secondary" sx={{ fontSize: "0.78rem" }}>
+                                                            {Math.round(ratio)}% do mínimo | mínimo {product.minimumStockLabel}
+                                                        </Typography>
+                                                    </Stack>
+                                                    <Chip icon={<WarningAmberRoundedIcon />} label={priority.label} sx={{ justifyContent: "flex-start", bgcolor: priority.tone, color: priority.color, fontWeight: 800, borderRadius: "999px" }} />
+                                                </Box>
+                                            </Paper>
+                                        );
+                                    })
+                                )}
+                            </Stack>
+                        </Stack>
+                    </Paper>
+                </>
+            ) : null}
+        </Stack>
     );
 }

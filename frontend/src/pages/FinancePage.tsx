@@ -255,25 +255,26 @@ export function FinancePage() {
 
     return (
         <Stack spacing={3}>
-            <Paper
-                elevation={0}
-                sx={{
-                    p: { xs: 2.5, md: 3 },
-                    borderRadius: "12px",
-                    bgcolor: "rgba(255,255,255,0.82)",
-                    backdropFilter: "blur(12px)",
-                }}
-            >
+            <Box>
                 <Stack spacing={2}>
-                    <Stack direction="row" spacing={1.25} alignItems="center">
-                        <PaymentsRoundedIcon color="secondary" />
-                        <Box>
-                            <Typography variant="h4">Financeiro</Typography>
-                            <Typography color="text.secondary">
-                                Resumo gerencial com vendas, caixa e indicadores por período.
-                            </Typography>
-                        </Box>
-                    </Stack>
+                    <Box>
+                        <h1
+                            style={{
+                                margin: 0,
+                                color: "#4a76d6",
+                                fontSize: "clamp(2rem, 3vw, 3rem)",
+                                lineHeight: 1,
+                                letterSpacing: "-0.04em",
+                                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                                fontWeight: 800,
+                            }}
+                        >
+                            Financeiro
+                        </h1>
+                        <Typography color="text.secondary" sx={{ mt: 2.5 }}>
+                            Resumo gerencial com vendas, caixa e indicadores por período.
+                        </Typography>
+                    </Box>
 
                     <Stack
                         direction={{ xs: "column", lg: "row" }}
@@ -322,7 +323,7 @@ export function FinancePage() {
                         </Stack>
                     </Stack>
                 </Stack>
-            </Paper>
+            </Box>
 
             {pageError ? (
                 <Typography color="error" sx={{ fontWeight: 700 }}>

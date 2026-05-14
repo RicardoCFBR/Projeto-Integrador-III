@@ -297,6 +297,22 @@ export type FinancePaymentDistributionPoint = {
     percentage: number;
 };
 
+export type DashboardSummary = {
+    totalCategories: number;
+    totalProducts: number;
+    totalStockItems: number;
+    openTabsCount: number;
+    launchedItemsCount: number;
+    totalSales: string;
+    totalSalesNumber: number;
+    salesByDay: Array<{
+        date: string;
+        dateLabel: string;
+        total: number;
+        totalLabel: string;
+    }>;
+};
+
 type ApiTabStatus = "aberta" | "encerrada";
 
 type ApiTabSummary = {
@@ -511,6 +527,21 @@ type ApiFinancePaymentDistributionPoint = {
 type ApiFinanceCharts = {
     vendas_por_dia: ApiFinanceChartSalesPoint[];
     distribuicao_pagamentos: ApiFinancePaymentDistributionPoint[];
+};
+
+type ApiDashboardSummary = {
+    totais: {
+        categorias_produto: number;
+        produtos: number;
+        insumos: number;
+        comandas_abertas: number;
+        itens_comanda: number;
+        vendas: string | number;
+    };
+    vendas_por_dia: Array<{
+        dia: string;
+        total: string | number;
+    }>;
 };
 
 function buildUrl(path: string) {
@@ -1048,6 +1079,33 @@ function mapFinancePaymentDistributionPoint(
     };
 }
 
+function mapDashboardSummary(summary: ApiDashboardSummary): DashboardSummary {
+    const totalSalesNumber = parseCurrency(summary.totais.vendas);
+
+    return {
+        totalCategories: summary.totais.categorias_produto,
+        totalProducts: summary.totais.produtos,
+        totalStockItems: summary.totais.insumos,
+        openTabsCount: summary.totais.comandas_abertas,
+        launchedItemsCount: summary.totais.itens_comanda,
+        totalSales: formatCurrency(totalSalesNumber),
+        totalSalesNumber,
+        salesByDay: summary.vendas_por_dia.map((item) => {
+            const total = parseCurrency(item.total);
+            const date = new Date(`${item.dia}T00:00:00`);
+            return {
+                date: item.dia,
+                dateLabel: date.toLocaleDateString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                }),
+                total,
+                totalLabel: formatCurrency(total),
+            };
+        }),
+    };
+}
+
 function mapProductCategory(category: ApiProductCategory): ProductCategory {
     return {
         id: category.id,
@@ -1524,4 +1582,9 @@ export async function getFinanceCharts(input?: {
             mapFinancePaymentDistributionPoint,
         ),
     };
+}
+
+export async function getDashboardSummary() {
+    const response = await request<ApiDashboardSummary>("/dashboard/");
+    return mapDashboardSummary(response);
 }

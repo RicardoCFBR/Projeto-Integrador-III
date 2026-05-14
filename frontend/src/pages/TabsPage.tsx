@@ -16,7 +16,7 @@ export function TabsPage() {
         <div className="page-stack">
             <section className="page-hero">
                 <div>
-                    <h1>Gestao de Comandas</h1>
+                    <h1 style={{ color: "#4a76d6" }}>Gestão de Comandas</h1>
                     <p style={{ marginTop: 20 }}>Gerencie as comandas ativas e encerradas.</p>
                 </div>
 

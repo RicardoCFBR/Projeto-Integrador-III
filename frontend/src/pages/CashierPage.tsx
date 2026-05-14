@@ -5,12 +5,10 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
-import PointOfSaleRoundedIcon from "@mui/icons-material/PointOfSaleRounded";
 import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import StorefrontRoundedIcon from "@mui/icons-material/StorefrontRounded";
 import {
-    alpha,
     Box,
     Button,
     Chip,
@@ -298,39 +296,38 @@ export function CashierPage() {
     return (
         <>
             <Stack spacing={3}>
-                <Paper
-                    elevation={0}
-                    sx={{
-                        p: { xs: 2.5, md: 3 },
-                        borderRadius: "12px",
-                        bgcolor: alpha("#ffffff", 0.78),
-                        backdropFilter: "blur(12px)",
-                    }}
-                >
-                    <Box>
-                        <Stack
-                            direction={{ xs: "column", lg: "row" }}
-                            spacing={2}
-                            justifyContent="space-between"
-                            alignItems={{ xs: "flex-start", lg: "center" }}
-                        >
-                            <Box>
-                                <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 1 }}>
-                                    <PointOfSaleRoundedIcon color="secondary" />
-                                    <Typography variant="h4">Nova Venda no Caixa</Typography>
-                                </Stack>
+                <Box>
+                    <Stack
+                        direction={{ xs: "column", lg: "row" }}
+                        spacing={2}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "flex-start", lg: "center" }}
+                    >
+                        <Box>
+                            <h1
+                                style={{
+                                    margin: 0,
+                                    color: "#4a76d6",
+                                    fontSize: "clamp(2rem, 3vw, 3rem)",
+                                    lineHeight: 1,
+                                    letterSpacing: "-0.04em",
+                                    fontFamily: '"Plus Jakarta Sans", sans-serif',
+                                    fontWeight: 800,
+                                }}
+                            >
+                                Venda no Caixa
+                            </h1>
 
-                                <Typography color="text.secondary">
-                                    Monte a venda direta e finalize o recebimento no caixa.
-                                </Typography>
-                            </Box>
+                            <Typography color="text.secondary" sx={{ mt: 2.5 }}>
+                                Monte a venda direta e finalize o recebimento no caixa.
+                            </Typography>
+                        </Box>
 
-                            <Button component={Link} to="/caixa" variant="text">
-                                Voltar ao Caixa
-                            </Button>
-                        </Stack>
-                    </Box>
-                </Paper>
+                        <Button component={Link} to="/caixa" variant="text">
+                            Voltar ao Caixa
+                        </Button>
+                    </Stack>
+                </Box>
 
                 <Box
                     sx={{

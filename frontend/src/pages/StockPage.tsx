@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
-import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import SwapHorizRoundedIcon from "@mui/icons-material/SwapHorizRounded";
 import {
     Box,
@@ -253,17 +252,24 @@ export function StockPage() {
 
     return (
         <Stack spacing={3}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: "12px", bgcolor: "rgba(255,255,255,0.82)" }}>
-                <Stack spacing={1}>
-                    <Stack direction="row" spacing={1.25} alignItems="center">
-                        <Inventory2RoundedIcon color="secondary" />
-                        <Typography variant="h4">Estoque</Typography>
-                    </Stack>
-                    <Typography color="text.secondary">
-                        Controle de estoque usando a mesma base de produtos vendidos no sistema.
-                    </Typography>
-                </Stack>
-            </Paper>
+            <Box>
+                <h1
+                    style={{
+                        margin: 0,
+                        color: "#4a76d6",
+                        fontSize: "clamp(2rem, 3vw, 3rem)",
+                        lineHeight: 1,
+                        letterSpacing: "-0.04em",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontWeight: 800,
+                    }}
+                >
+                    Estoque
+                </h1>
+                <Typography color="text.secondary" sx={{ mt: 2.5 }}>
+                    Controle de estoque usando a mesma base de produtos vendidos no sistema.
+                </Typography>
+            </Box>
 
             {pageError ? <Typography color="error">{pageError}</Typography> : null}
 
