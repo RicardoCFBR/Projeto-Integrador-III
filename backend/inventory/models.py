@@ -413,6 +413,7 @@ class ItemVendaCaixa(models.Model):
 class MovimentacaoEstoque(models.Model):
     class Tipo(models.TextChoices):
         ENTRADA = "entrada", "Entrada"
+        ESTORNO = "estorno", "Estorno"
         USO_INTERNO = "uso_interno", "Uso interno"
         AJUSTE = "ajuste", "Ajuste"
         PERDA = "perda", "Perda"

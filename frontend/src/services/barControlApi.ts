@@ -104,6 +104,7 @@ export type StockProductInput = {
 
 export type StockMovementType =
     | "entrada"
+    | "estorno"
     | "uso_interno"
     | "ajuste"
     | "perda"

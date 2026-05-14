@@ -239,7 +239,7 @@ def apply_date_filters(queryset, field_name, request):
 def apply_stock_movement(produto, tipo, quantidade, observacao=""):
     produto.refresh_from_db(fields=["estoque_atual"])
 
-    if tipo == MovimentacaoEstoque.Tipo.ENTRADA:
+    if tipo in (MovimentacaoEstoque.Tipo.ENTRADA, MovimentacaoEstoque.Tipo.ESTORNO):
         novo_estoque = produto.estoque_atual + quantidade
     elif tipo == MovimentacaoEstoque.Tipo.AJUSTE:
         novo_estoque = quantidade
@@ -375,20 +375,34 @@ class ComandaViewSet(viewsets.ModelViewSet):
         serializer = ItemComandaCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        quantidade = serializer.validated_data["quantidade"]
         produto = Produto.objects.get(pk=serializer.validated_data["produto_id"], ativo=True)
-        item, created = ItemComanda.objects.get_or_create(
-            comanda=comanda,
-            produto=produto,
-            defaults={
-                "quantidade": serializer.validated_data["quantidade"],
-                "preco_unitario": produto.preco_venda,
-            },
-        )
 
-        if not created:
-            item.quantidade += serializer.validated_data["quantidade"]
-            item.preco_unitario = produto.preco_venda
-            item.save(update_fields=["quantidade", "preco_unitario"])
+        try:
+            with transaction.atomic():
+                item, created = ItemComanda.objects.get_or_create(
+                    comanda=comanda,
+                    produto=produto,
+                    defaults={
+                        "quantidade": quantidade,
+                        "preco_unitario": produto.preco_venda,
+                    },
+                )
+
+                if not created:
+                    item.quantidade += quantidade
+                    item.preco_unitario = produto.preco_venda
+                    item.save(update_fields=["quantidade", "preco_unitario"])
+
+                if produto.controla_estoque:
+                    apply_stock_movement(
+                        produto,
+                        MovimentacaoEstoque.Tipo.VENDA,
+                        Decimal(quantidade),
+                        f"Lancamento na comanda {comanda.codigo}",
+                    )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         response_serializer = ItemComandaSerializer(item)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -457,14 +471,6 @@ class ComandaViewSet(viewsets.ModelViewSet):
                         for item in itens
                     ]
                 )
-                for item in itens:
-                    if item.produto.controla_estoque:
-                        apply_stock_movement(
-                            item.produto,
-                            MovimentacaoEstoque.Tipo.VENDA,
-                            Decimal(item.quantidade),
-                            f"Baixa automatica da venda {venda.codigo}",
-                        )
                 comanda.status = Comanda.Status.ENCERRADA
                 comanda.encerrada_em = timezone.now()
                 comanda.save(update_fields=["status", "encerrada_em"])
@@ -488,8 +494,20 @@ class ItemComandaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        item.quantidade += 1
-        item.save(update_fields=["quantidade"])
+        try:
+            with transaction.atomic():
+                item.quantidade += 1
+                item.save(update_fields=["quantidade"])
+
+                if item.produto.controla_estoque:
+                    apply_stock_movement(
+                        item.produto,
+                        MovimentacaoEstoque.Tipo.VENDA,
+                        Decimal("1"),
+                        f"Incremento na comanda {item.comanda.codigo}",
+                    )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(ItemComandaSerializer(item).data)
 
     @action(detail=True, methods=["post"], url_path="decrementar")
@@ -501,12 +519,21 @@ class ItemComandaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if item.quantidade <= 1:
-            item.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        with transaction.atomic():
+            if item.produto.controla_estoque:
+                apply_stock_movement(
+                    item.produto,
+                    MovimentacaoEstoque.Tipo.ESTORNO,
+                    Decimal("1"),
+                    f"Reducao na comanda {item.comanda.codigo}",
+                )
 
-        item.quantidade -= 1
-        item.save(update_fields=["quantidade"])
+            if item.quantidade <= 1:
+                item.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+
+            item.quantidade -= 1
+            item.save(update_fields=["quantidade"])
         return Response(ItemComandaSerializer(item).data)
 
 

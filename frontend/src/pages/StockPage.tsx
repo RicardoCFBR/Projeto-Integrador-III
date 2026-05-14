@@ -62,6 +62,7 @@ const stockTypeOptions = [
 
 const movementOptions: Array<{ value: Exclude<StockMovementType, "venda">; label: string }> = [
     { value: "entrada", label: "Entrada" },
+    { value: "estorno", label: "Estorno" },
     { value: "uso_interno", label: "Uso interno" },
     { value: "ajuste", label: "Ajuste" },
     { value: "perda", label: "Perda" },
@@ -111,6 +112,7 @@ function matchesPeriodFilter(isoDate: string, filter: MovementPeriodFilter) {
 
 function getMovementColor(type: StockMovementType) {
     if (type === "entrada") return "success";
+    if (type === "estorno") return "primary";
     if (type === "uso_interno") return "warning";
     if (type === "ajuste") return "info";
     if (type === "perda") return "error";
@@ -363,13 +365,14 @@ export function StockPage() {
                             <Box>
                                 <Typography variant="h5">Movimentações de Estoque</Typography>
                                 <Typography color="text.secondary">
-                                    Acompanhe entradas, uso interno, ajustes, perdas e baixas automáticas por venda.
+                                    Acompanhe entradas, estornos, uso interno, ajustes, perdas e baixas automáticas por venda.
                                 </Typography>
                             </Box>
                             <Stack direction={{ xs: "column", lg: "row" }} spacing={1.25}>
                                 <TextField select label="Tipo" value={movementTypeFilter} onChange={(e) => setMovementTypeFilter(e.target.value as StockMovementType | "all")} sx={{ minWidth: 220 }}>
                                     <MenuItem value="all">Todos</MenuItem>
                                     <MenuItem value="entrada">Entrada</MenuItem>
+                                    <MenuItem value="estorno">Estorno</MenuItem>
                                     <MenuItem value="uso_interno">Uso interno</MenuItem>
                                     <MenuItem value="ajuste">Ajuste</MenuItem>
                                     <MenuItem value="perda">Perda</MenuItem>
