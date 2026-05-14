@@ -2,6 +2,30 @@ import { Link } from "react-router-dom";
 
 import { useTabs } from "../contexts/TabsContext";
 
+function getTabStatusPresentation(tab: { status: "open" | "closed"; isPaid: boolean }) {
+    if (tab.isPaid) {
+        return {
+            label: "Paga",
+            className: "tab-card__status-badge tab-card__status-badge--paid",
+            cardClassName: "tab-card--paid",
+        };
+    }
+
+    if (tab.status === "closed") {
+        return {
+            label: "Encerrada",
+            className: "tab-card__status-badge tab-card__status-badge--closed",
+            cardClassName: "tab-card--closed",
+        };
+    }
+
+    return {
+        label: "Aberta",
+        className: "tab-card__status-badge tab-card__status-badge--open",
+        cardClassName: "tab-card--open",
+    };
+}
+
 export function TabsPage() {
     const { error, loading, tabs } = useTabs();
     const closedCount = tabs.filter((tab) => tab.status === "closed").length;
@@ -56,13 +80,17 @@ export function TabsPage() {
                 ) : null}
 
                 {tabs.map((tab) => (
-                    <Link
-                        aria-label={`Abrir comanda de ${tab.customerName}`}
-                        className="tab-card-link"
-                        key={tab.id}
-                        to={`/comandas/${tab.id}`}
-                    >
-                        <article className={`tab-card tab-card--${tab.status}`}>
+                    (() => {
+                        const statusPresentation = getTabStatusPresentation(tab);
+
+                        return (
+                            <Link
+                                aria-label={`Abrir comanda de ${tab.customerName}`}
+                                className="tab-card-link"
+                                key={tab.id}
+                                to={`/comandas/${tab.id}`}
+                            >
+                                <article className={`tab-card ${statusPresentation.cardClassName}`}>
                             <div className="tab-card__status" aria-hidden="true" />
 
                             <div className="tab-card__body">
@@ -70,6 +98,10 @@ export function TabsPage() {
                                     <h2>{tab.customerName}</h2>
                                     <p>{tab.elapsedTime}</p>
                                 </div>
+
+                                <p className={statusPresentation.className}>
+                                    Status: {statusPresentation.label}
+                                </p>
 
                                 <p className="tab-card__note">
                                     {tab.itemsCount === 1
@@ -82,8 +114,10 @@ export function TabsPage() {
                                     <strong>{tab.totalValue}</strong>
                                 </div>
                             </div>
-                        </article>
-                    </Link>
+                                </article>
+                            </Link>
+                        );
+                    })()
                 ))}
             </section>
         </div>

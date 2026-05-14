@@ -1390,9 +1390,7 @@ export async function listProductCategories() {
 
 export async function listStockProducts() {
     const response = await request<ApiProduct[]>("/produtos/?include_inactive=true");
-    return response
-        .filter((product) => product.controla_estoque)
-        .map(mapStockProduct);
+    return response.map(mapStockProduct);
 }
 
 export async function createStockProduct(input: StockProductInput) {

@@ -4,6 +4,7 @@ import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import {
+    alpha,
     Box,
     Button,
     Chip,
@@ -12,6 +13,7 @@ import {
     Paper,
     Stack,
     Typography,
+    useTheme,
 } from "@mui/material";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -77,12 +79,42 @@ function getStockRatio(product: StockProduct) {
     return Math.max(0, Math.min((product.currentStock / product.minimumStock) * 100, 100));
 }
 
-function getStockPriority(product: StockProduct) {
+function getStockPriority(product: StockProduct, darkMode: boolean) {
     const ratio = getStockRatio(product);
 
-    if (ratio <= 10) return { label: "Crítico", color: "#b42318", tone: "#fdecea" };
-    if (ratio <= 25) return { label: "Reposição Imediata", color: "#f57c00", tone: "#fff3e0" };
-    return { label: "Estável", color: "#2e7d32", tone: "#edf7ed" };
+    if (ratio <= 10) {
+        return darkMode
+            ? { label: "Crítico", color: "#ffb4a8", tone: "rgba(180, 35, 24, 0.22)" }
+            : { label: "Crítico", color: "#b42318", tone: "#fdecea" };
+    }
+
+    if (ratio <= 25) {
+        return darkMode
+            ? { label: "Reposição Imediata", color: "#ffbf7c", tone: "rgba(245, 124, 0, 0.18)" }
+            : { label: "Reposição Imediata", color: "#f57c00", tone: "#fff3e0" };
+    }
+
+    return darkMode
+        ? { label: "Estável", color: "#bff7b8", tone: "rgba(116, 216, 124, 0.18)" }
+        : { label: "Estável", color: "#2e7d32", tone: "#edf7ed" };
+}
+
+function getDashboardChipTone(badgeTone: "success" | "warning" | "info", darkMode: boolean) {
+    if (badgeTone === "warning") {
+        return darkMode
+            ? { bgcolor: "rgba(245, 124, 0, 0.18)", color: "#ffbf7c" }
+            : { bgcolor: "#fff3e0", color: "#f57c00" };
+    }
+
+    if (badgeTone === "info") {
+        return darkMode
+            ? { bgcolor: "rgba(110, 163, 255, 0.18)", color: "#dbe7ff" }
+            : { bgcolor: "#eef4ff", color: "#0062a5" };
+    }
+
+    return darkMode
+        ? { bgcolor: "rgba(116, 216, 124, 0.18)", color: "#bff7b8" }
+        : { bgcolor: "#edf7ed", color: "#2e7d32" };
 }
 
 function DashboardMetricCard({
@@ -92,6 +124,7 @@ function DashboardMetricCard({
     helper,
     badge,
     badgeTone = "success",
+    darkMode,
 }: {
     icon: ReactNode;
     title: string;
@@ -99,28 +132,65 @@ function DashboardMetricCard({
     helper: string;
     badge?: string;
     badgeTone?: "success" | "warning" | "info";
+    darkMode: boolean;
 }) {
-    const badgeStyles =
-        badgeTone === "warning"
-            ? { bgcolor: "#fff3e0", color: "#f57c00" }
-            : badgeTone === "info"
-              ? { bgcolor: "#eef4ff", color: "#0062a5" }
-              : { bgcolor: "#edf7ed", color: "#2e7d32" };
+    const badgeStyles = getDashboardChipTone(badgeTone, darkMode);
 
     return (
-        <Paper elevation={0} sx={{ p: 3, borderRadius: "20px", bgcolor: "background.paper", boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)" }}>
+        <Paper
+            elevation={0}
+            sx={{
+                p: 3,
+                borderRadius: "20px",
+                bgcolor: "background.paper",
+                boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)",
+            }}
+        >
             <Stack spacing={2}>
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                    <Box sx={{ width: 44, height: 44, display: "grid", placeItems: "center", borderRadius: "14px", bgcolor: "#f3f8f6", color: "primary.main" }}>
+                    <Box
+                        sx={{
+                            width: 44,
+                            height: 44,
+                            display: "grid",
+                            placeItems: "center",
+                            borderRadius: "14px",
+                            bgcolor: "var(--surface-soft)",
+                            color: "primary.main",
+                        }}
+                    >
                         {icon}
                     </Box>
-                    {badge ? <Chip label={badge} size="small" sx={{ borderRadius: "999px", fontWeight: 800, ...badgeStyles }} /> : null}
+                    {badge ? (
+                        <Chip
+                            label={badge}
+                            size="small"
+                            sx={{ borderRadius: "999px", fontWeight: 800, ...badgeStyles }}
+                        />
+                    ) : null}
                 </Stack>
                 <Box>
-                    <Typography sx={{ mb: 0.75, fontSize: "0.75rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "text.secondary" }}>
+                    <Typography
+                        sx={{
+                            mb: 0.75,
+                            fontSize: "0.75rem",
+                            fontWeight: 800,
+                            letterSpacing: "0.12em",
+                            textTransform: "uppercase",
+                            color: "text.secondary",
+                        }}
+                    >
                         {title}
                     </Typography>
-                    <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: "2rem", fontWeight: 800, lineHeight: 1.05, color: "#1f2937" }}>
+                    <Typography
+                        sx={{
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontSize: "2rem",
+                            fontWeight: 800,
+                            lineHeight: 1.05,
+                            color: "text.primary",
+                        }}
+                    >
                         {value}
                     </Typography>
                 </Box>
@@ -133,6 +203,8 @@ function DashboardMetricCard({
 }
 
 export function DashboardPage() {
+    const theme = useTheme();
+    const darkMode = theme.palette.mode === "dark";
     const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(emptySummary);
     const [financeSummary, setFinanceSummary] = useState<FinanceSummary>(emptyFinanceSummary);
     const [paymentDistribution, setPaymentDistribution] = useState<FinancePaymentDistributionPoint[]>([]);
@@ -148,12 +220,13 @@ export function DashboardPage() {
                 setLoading(true);
                 setError(null);
 
-                const [summaryResponse, financeSummaryResponse, financeChartsResponse, stockResponse] = await Promise.all([
-                    getDashboardSummary(),
-                    getFinanceSummary({ period: "hoje" }),
-                    getFinanceCharts({ period: "ultimos_7_dias" }),
-                    listStockProducts(),
-                ]);
+                const [summaryResponse, financeSummaryResponse, financeChartsResponse, stockResponse] =
+                    await Promise.all([
+                        getDashboardSummary(),
+                        getFinanceSummary({ period: "hoje" }),
+                        getFinanceCharts({ period: "ultimos_7_dias" }),
+                        listStockProducts(),
+                    ]);
 
                 if (cancelled) return;
 
@@ -187,6 +260,10 @@ export function DashboardPage() {
                 .filter((product) => product.controlsStock && product.isActive)
                 .sort((left, right) => getStockRatio(left) - getStockRatio(right))
                 .slice(0, 5),
+        [stockProducts],
+    );
+    const controlledStockProductsCount = useMemo(
+        () => stockProducts.filter((product) => product.controlsStock).length,
         [stockProducts],
     );
 
@@ -237,8 +314,9 @@ export function DashboardPage() {
                         sx={{
                             height: 42,
                             borderRadius: "14px",
-                            bgcolor: "background.paper",
-                            border: "1px solid rgba(117, 124, 123, 0.14)",
+                            bgcolor: darkMode ? "rgba(110, 163, 255, 0.12)" : "background.paper",
+                            border: `1px solid ${theme.palette.divider}`,
+                            color: darkMode ? "#dbe7ff" : "text.primary",
                             fontWeight: 700,
                         }}
                     />
@@ -259,7 +337,15 @@ export function DashboardPage() {
             </Stack>
 
             {error ? (
-                <Paper elevation={0} sx={{ p: 3, borderRadius: "18px", bgcolor: "#fff4f2", color: "error.main" }}>
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 3,
+                        borderRadius: "18px",
+                        bgcolor: darkMode ? alpha("#a73b21", 0.12) : "#fff4f2",
+                        color: "error.main",
+                    }}
+                >
                     <Typography sx={{ fontWeight: 800, mb: 0.5 }}>Erro ao carregar o painel</Typography>
                     <Typography>{error}</Typography>
                 </Paper>
@@ -290,6 +376,7 @@ export function DashboardPage() {
                             value={financeSummary.totalSold}
                             helper={`${financeSummary.salesCount} vendas registradas hoje`}
                             badge="Hoje"
+                            darkMode={darkMode}
                         />
                         <DashboardMetricCard
                             icon={<ReceiptLongRoundedIcon />}
@@ -298,6 +385,7 @@ export function DashboardPage() {
                             helper={`${dashboardSummary.launchedItemsCount} itens lançados nas comandas`}
                             badge="Operação"
                             badgeTone="warning"
+                            darkMode={darkMode}
                         />
                         <DashboardMetricCard
                             icon={<TrendingUpRoundedIcon />}
@@ -306,13 +394,15 @@ export function DashboardPage() {
                             helper="Média atual das vendas concluídas"
                             badge="Ao vivo"
                             badgeTone="info"
+                            darkMode={darkMode}
                         />
                         <DashboardMetricCard
                             icon={<Inventory2RoundedIcon />}
                             title="Produtos controlados"
-                            value={String(stockProducts.length)}
+                            value={String(controlledStockProductsCount)}
                             helper={`${lowStockProducts.length} itens exigem atenção imediata`}
                             badge="Estoque"
+                            darkMode={darkMode}
                         />
                     </Box>
 
@@ -326,31 +416,76 @@ export function DashboardPage() {
                             gap: 2,
                         }}
                     >
-                        <Paper elevation={0} sx={{ p: 3, borderRadius: "22px", bgcolor: "background.paper", boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)" }}>
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 3,
+                                borderRadius: "22px",
+                                bgcolor: "background.paper",
+                                boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)",
+                            }}
+                        >
                             <Stack spacing={2}>
-                                <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5}>
+                                <Stack
+                                    direction={{ xs: "column", md: "row" }}
+                                    justifyContent="space-between"
+                                    spacing={1.5}
+                                >
                                     <Box>
-                                        <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: "1.3rem", fontWeight: 800, color: "#0f172a" }}>
+                                        <Typography
+                                            sx={{
+                                                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                                                fontSize: "1.3rem",
+                                                fontWeight: 800,
+                                                color: "text.primary",
+                                            }}
+                                        >
                                             Fluxo de Faturamento
                                         </Typography>
                                         <Typography color="text.secondary">
                                             Evolução das vendas lançadas por dia.
                                         </Typography>
                                     </Box>
-                                    <Chip label="Últimos dias" sx={{ alignSelf: "flex-start", bgcolor: "#f3f8f6", color: "#4a5a5b", fontWeight: 700 }} />
+                                    <Chip
+                                        label="Últimos dias"
+                                        sx={{
+                                            alignSelf: "flex-start",
+                                            bgcolor: darkMode
+                                                ? "rgba(110, 163, 255, 0.16)"
+                                                : "var(--surface-soft)",
+                                            color: darkMode ? "#dbe7ff" : "text.secondary",
+                                            fontWeight: 700,
+                                        }}
+                                    />
                                 </Stack>
 
                                 <Box sx={{ width: "100%", height: 340 }}>
                                     <ResponsiveContainer>
                                         <AreaChart data={chartData}>
                                             <defs>
-                                                <linearGradient id="dashboard-sales-area" x1="0" x2="0" y1="0" y2="1">
+                                                <linearGradient
+                                                    id="dashboard-sales-area"
+                                                    x1="0"
+                                                    x2="0"
+                                                    y1="0"
+                                                    y2="1"
+                                                >
                                                     <stop offset="5%" stopColor="#55dc28" stopOpacity={0.34} />
                                                     <stop offset="95%" stopColor="#55dc28" stopOpacity={0.02} />
                                                 </linearGradient>
                                             </defs>
-                                            <XAxis dataKey="dateLabel" axisLine={false} tickLine={false} stroke="#94a3b8" />
-                                            <YAxis axisLine={false} tickLine={false} stroke="#94a3b8" tickFormatter={(value) => `R$ ${value}`} />
+                                            <XAxis
+                                                dataKey="dateLabel"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                stroke={theme.palette.text.secondary}
+                                            />
+                                            <YAxis
+                                                axisLine={false}
+                                                tickLine={false}
+                                                stroke={theme.palette.text.secondary}
+                                                tickFormatter={(value) => `R$ ${value}`}
+                                            />
                                             <Tooltip
                                                 formatter={(value) =>
                                                     new Intl.NumberFormat("pt-BR", {
@@ -360,21 +495,45 @@ export function DashboardPage() {
                                                 }
                                                 contentStyle={{
                                                     borderRadius: 16,
-                                                    border: "1px solid rgba(15, 23, 42, 0.08)",
-                                                    boxShadow: "0 16px 30px rgba(15, 23, 42, 0.12)",
+                                                    border: `1px solid ${theme.palette.divider}`,
+                                                    boxShadow: darkMode
+                                                        ? "0 16px 30px rgba(0, 0, 0, 0.28)"
+                                                        : "0 16px 30px rgba(15, 23, 42, 0.12)",
+                                                    backgroundColor: theme.palette.background.paper,
                                                 }}
                                             />
-                                            <Area type="monotone" dataKey="total" stroke="#55dc28" strokeWidth={3} fill="url(#dashboard-sales-area)" />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="total"
+                                                stroke="#55dc28"
+                                                strokeWidth={3}
+                                                fill="url(#dashboard-sales-area)"
+                                            />
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </Box>
                             </Stack>
                         </Paper>
 
-                        <Paper elevation={0} sx={{ p: 3, borderRadius: "22px", bgcolor: "background.paper", boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)" }}>
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 3,
+                                borderRadius: "22px",
+                                bgcolor: "background.paper",
+                                boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)",
+                            }}
+                        >
                             <Stack spacing={2}>
                                 <Box>
-                                    <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: "1.3rem", fontWeight: 800, color: "#0f172a" }}>
+                                    <Typography
+                                        sx={{
+                                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                                            fontSize: "1.3rem",
+                                            fontWeight: 800,
+                                            color: "text.primary",
+                                        }}
+                                    >
                                         Distribuição por Pagamento
                                     </Typography>
                                     <Typography color="text.secondary">
@@ -385,14 +544,27 @@ export function DashboardPage() {
                                 <Box sx={{ width: "100%", height: 260 }}>
                                     <ResponsiveContainer>
                                         <PieChart>
-                                            <Pie data={paymentDistribution} dataKey="total" innerRadius={70} outerRadius={96} paddingAngle={3} stroke="none">
+                                            <Pie
+                                                data={paymentDistribution}
+                                                dataKey="total"
+                                                innerRadius={70}
+                                                outerRadius={96}
+                                                paddingAngle={3}
+                                                stroke="none"
+                                            >
                                                 {paymentDistribution.map((entry) => (
-                                                    <Cell key={entry.paymentMethod} fill={paymentChartColors[entry.paymentMethod]} />
+                                                    <Cell
+                                                        key={entry.paymentMethod}
+                                                        fill={paymentChartColors[entry.paymentMethod]}
+                                                    />
                                                 ))}
                                             </Pie>
                                             <Tooltip
                                                 formatter={(value, _name, item) => {
-                                                    const payload = item?.payload as FinancePaymentDistributionPoint | undefined;
+                                                    const payload =
+                                                        item?.payload as
+                                                            | FinancePaymentDistributionPoint
+                                                            | undefined;
                                                     return [
                                                         new Intl.NumberFormat("pt-BR", {
                                                             style: "currency",
@@ -401,28 +573,67 @@ export function DashboardPage() {
                                                         payload?.paymentMethodLabel ?? "Pagamento",
                                                     ];
                                                 }}
+                                                contentStyle={{
+                                                    borderRadius: 16,
+                                                    border: `1px solid ${theme.palette.divider}`,
+                                                    boxShadow: darkMode
+                                                        ? "0 16px 30px rgba(0, 0, 0, 0.28)"
+                                                        : "0 16px 30px rgba(15, 23, 42, 0.12)",
+                                                    backgroundColor: theme.palette.background.paper,
+                                                }}
                                             />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </Box>
 
                                 <Box sx={{ textAlign: "center", mt: -20 }}>
-                                    <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: "2rem", fontWeight: 800, lineHeight: 1 }}>
+                                    <Typography
+                                        sx={{
+                                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                                            fontSize: "2rem",
+                                            fontWeight: 800,
+                                            lineHeight: 1,
+                                            color: "text.primary",
+                                        }}
+                                    >
                                         {new Intl.NumberFormat("pt-BR").format(Math.round(donutTotal))}
                                     </Typography>
-                                    <Typography sx={{ mt: 0.5, fontSize: "0.72rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "text.secondary", fontWeight: 800 }}>
+                                    <Typography
+                                        sx={{
+                                            mt: 0.5,
+                                            fontSize: "0.72rem",
+                                            letterSpacing: "0.14em",
+                                            textTransform: "uppercase",
+                                            color: "text.secondary",
+                                            fontWeight: 800,
+                                        }}
+                                    >
                                         Volume financeiro
                                     </Typography>
                                 </Box>
 
                                 <Stack spacing={1.25}>
                                     {paymentDistribution.map((item) => (
-                                        <Stack key={item.paymentMethod} direction="row" justifyContent="space-between" alignItems="center">
+                                        <Stack
+                                            key={item.paymentMethod}
+                                            direction="row"
+                                            justifyContent="space-between"
+                                            alignItems="center"
+                                        >
                                             <Stack direction="row" spacing={1} alignItems="center">
-                                                <Box sx={{ width: 10, height: 10, borderRadius: "999px", bgcolor: paymentChartColors[item.paymentMethod] }} />
-                                                <Typography>{item.paymentMethodLabel}</Typography>
+                                                <Box
+                                                    sx={{
+                                                        width: 10,
+                                                        height: 10,
+                                                        borderRadius: "999px",
+                                                        bgcolor: paymentChartColors[item.paymentMethod],
+                                                    }}
+                                                />
+                                                <Typography color="text.primary">
+                                                    {item.paymentMethodLabel}
+                                                </Typography>
                                             </Stack>
-                                            <Typography sx={{ fontWeight: 800 }}>
+                                            <Typography sx={{ fontWeight: 800, color: "text.primary" }}>
                                                 {item.percentage.toFixed(1)}%
                                             </Typography>
                                         </Stack>
@@ -432,11 +643,30 @@ export function DashboardPage() {
                         </Paper>
                     </Box>
 
-                    <Paper elevation={0} sx={{ p: 3, borderRadius: "22px", bgcolor: "background.paper", boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)" }}>
+                    <Paper
+                        elevation={0}
+                        sx={{
+                            p: 3,
+                            borderRadius: "22px",
+                            bgcolor: "background.paper",
+                            boxShadow: "0 16px 40px rgba(45, 52, 51, 0.05)",
+                        }}
+                    >
                         <Stack spacing={2.5}>
-                            <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5}>
+                            <Stack
+                                direction={{ xs: "column", md: "row" }}
+                                justifyContent="space-between"
+                                spacing={1.5}
+                            >
                                 <Box>
-                                    <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: "1.3rem", fontWeight: 800, color: "#0f172a" }}>
+                                    <Typography
+                                        sx={{
+                                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                                            fontSize: "1.3rem",
+                                            fontWeight: 800,
+                                            color: "text.primary",
+                                        }}
+                                    >
                                         Alertas de Estoque Crítico
                                     </Typography>
                                     <Typography color="text.secondary">
@@ -449,7 +679,20 @@ export function DashboardPage() {
                                 </Button>
                             </Stack>
 
-                            <Box sx={{ display: "grid", gridTemplateColumns: "minmax(180px, 1.5fr) minmax(120px, 1fr) minmax(180px, 1.2fr) minmax(150px, 1fr)", gap: 2, px: 1, color: "text.secondary", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                            <Box
+                                sx={{
+                                    display: "grid",
+                                    gridTemplateColumns:
+                                        "minmax(180px, 1.5fr) minmax(120px, 1fr) minmax(180px, 1.2fr) minmax(150px, 1fr)",
+                                    gap: 2,
+                                    px: 1,
+                                    color: "text.secondary",
+                                    fontSize: "0.72rem",
+                                    fontWeight: 800,
+                                    letterSpacing: "0.1em",
+                                    textTransform: "uppercase",
+                                }}
+                            >
                                 <span>Item</span>
                                 <span>Categoria</span>
                                 <span>Cobertura</span>
@@ -458,22 +701,60 @@ export function DashboardPage() {
 
                             <Stack spacing={1.5}>
                                 {lowStockProducts.length === 0 ? (
-                                    <Paper elevation={0} sx={{ p: 2.5, borderRadius: "16px", bgcolor: "#f8faf9", color: "text.secondary" }}>
+                                    <Paper
+                                        elevation={0}
+                                        sx={{
+                                            p: 2.5,
+                                            borderRadius: "16px",
+                                            bgcolor: "background.default",
+                                            color: "text.secondary",
+                                        }}
+                                    >
                                         Nenhum alerta crítico no momento.
                                     </Paper>
                                 ) : (
                                     lowStockProducts.map((product) => {
                                         const ratio = getStockRatio(product);
-                                        const priority = getStockPriority(product);
+                                        const priority = getStockPriority(product, darkMode);
 
                                         return (
-                                            <Paper elevation={0} key={product.id} sx={{ p: 2, borderRadius: "16px", bgcolor: "#fbfdfc", border: "1px solid rgba(117, 124, 123, 0.10)" }}>
-                                                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(180px, 1.5fr) minmax(120px, 1fr) minmax(180px, 1.2fr) minmax(150px, 1fr)" }, gap: 2, alignItems: "center" }}>
+                                            <Paper
+                                                elevation={0}
+                                                key={product.id}
+                                                sx={{
+                                                    p: 2,
+                                                    borderRadius: "16px",
+                                                    bgcolor: "background.default",
+                                                    border: `1px solid ${theme.palette.divider}`,
+                                                }}
+                                            >
+                                                <Box
+                                                    sx={{
+                                                        display: "grid",
+                                                        gridTemplateColumns: {
+                                                            xs: "1fr",
+                                                            lg: "minmax(180px, 1.5fr) minmax(120px, 1fr) minmax(180px, 1.2fr) minmax(150px, 1fr)",
+                                                        },
+                                                        gap: 2,
+                                                        alignItems: "center",
+                                                    }}
+                                                >
                                                     <Box>
-                                                        <Typography sx={{ fontWeight: 800 }}>{product.name}</Typography>
-                                                        <Typography color="text.secondary" sx={{ fontSize: "0.8rem" }}>{product.currentStockLabel}</Typography>
+                                                        <Typography
+                                                            sx={{ fontWeight: 800, color: "text.primary" }}
+                                                        >
+                                                            {product.name}
+                                                        </Typography>
+                                                        <Typography
+                                                            color="text.secondary"
+                                                            sx={{ fontSize: "0.8rem" }}
+                                                        >
+                                                            {product.currentStockLabel}
+                                                        </Typography>
                                                     </Box>
-                                                    <Typography>{product.categoryName}</Typography>
+                                                    <Typography color="text.primary">
+                                                        {product.categoryName}
+                                                    </Typography>
                                                     <Stack spacing={0.75}>
                                                         <LinearProgress
                                                             variant="determinate"
@@ -481,18 +762,35 @@ export function DashboardPage() {
                                                             sx={{
                                                                 height: 8,
                                                                 borderRadius: "999px",
-                                                                bgcolor: "#edf2f1",
+                                                                bgcolor: "var(--surface-soft)",
                                                                 "& .MuiLinearProgress-bar": {
                                                                     borderRadius: "999px",
                                                                     bgcolor: priority.color,
                                                                 },
                                                             }}
                                                         />
-                                                        <Typography color="text.secondary" sx={{ fontSize: "0.78rem" }}>
-                                                            {Math.round(ratio)}% do mínimo | mínimo {product.minimumStockLabel}
+                                                        <Typography
+                                                            color="text.secondary"
+                                                            sx={{ fontSize: "0.78rem" }}
+                                                        >
+                                                            {Math.round(ratio)}% do mínimo | mínimo{" "}
+                                                            {product.minimumStockLabel}
                                                         </Typography>
                                                     </Stack>
-                                                    <Chip icon={<WarningAmberRoundedIcon />} label={priority.label} sx={{ justifyContent: "flex-start", bgcolor: priority.tone, color: priority.color, fontWeight: 800, borderRadius: "999px" }} />
+                                                    <Chip
+                                                        icon={<WarningAmberRoundedIcon />}
+                                                        label={priority.label}
+                                                        sx={{
+                                                            justifyContent: "flex-start",
+                                                            bgcolor: priority.tone,
+                                                            color: priority.color,
+                                                            fontWeight: 800,
+                                                            borderRadius: "999px",
+                                                            "& .MuiChip-icon": {
+                                                                color: priority.color,
+                                                            },
+                                                        }}
+                                                    />
                                                 </Box>
                                             </Paper>
                                         );

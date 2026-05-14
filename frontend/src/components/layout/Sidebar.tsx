@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 
+import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
+import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import PointOfSaleRoundedIcon from "@mui/icons-material/PointOfSaleRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
@@ -16,11 +18,13 @@ import {
     ListItemText,
     Paper,
     Stack,
+    useTheme,
 } from "@mui/material";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
-import { useCashSession } from "../../contexts/CashSessionContext";
 import logo from "../../assets/logo.png";
+import { useCashSession } from "../../contexts/CashSessionContext";
+import { useThemeMode } from "../../contexts/ThemeModeContext";
 
 const topItems = [{ label: "Dashboard", to: "/dashboard", icon: <DashboardRoundedIcon /> }];
 
@@ -60,12 +64,21 @@ const linkSx = {
 };
 
 export function Sidebar() {
+    const theme = useTheme();
     const location = useLocation();
     const navigate = useNavigate();
     const { isCashOpen } = useCashSession();
+    const { mode, toggleMode } = useThemeMode();
     const cashGroupSelected =
         location.pathname.startsWith("/caixa") || location.pathname.startsWith("/comandas");
     const [cashGroupExpanded, setCashGroupExpanded] = useState(false);
+    const selectedBg = "var(--surface-selected)";
+    const hoverBg = "var(--surface-hover)";
+    const selectedShadow = "var(--shadow-selected)";
+    const baseTextColor = theme.palette.mode === "dark" ? "#d5e1de" : "#3e4d4f";
+    const mutedTextColor = theme.palette.mode === "dark" ? "#a7bbb8" : "#526163";
+    const disabledTextColor =
+        theme.palette.mode === "dark" ? "rgba(213, 225, 222, 0.42)" : "rgba(62, 77, 79, 0.42)";
 
     useEffect(() => {
         if (isCashOpen) {
@@ -86,7 +99,11 @@ export function Sidebar() {
                 top: 0,
                 height: { md: "100vh" },
                 p: { xs: 2, md: "28px 22px" },
-                background: "linear-gradient(180deg, #f7fbf9 0%, #eef6f2 100%)",
+                display: "flex",
+                flexDirection: "column",
+                background:
+                    "var(--sidebar-background)",
+                borderRight: `1px solid ${theme.palette.divider}`,
             }}
         >
             <Box sx={{ mb: 4, display: "flex", justifyContent: "center" }}>
@@ -114,19 +131,19 @@ export function Sidebar() {
                             selected={selected}
                             sx={{
                                 ...linkSx,
-                                color: selected ? "#1b58d8" : "#3e4d4f",
+                                color: selected ? "#1b58d8" : baseTextColor,
                                 "& .MuiListItemText-primary": {
                                     fontWeight: selected ? 700 : 500,
                                 },
                                 "&.Mui-selected": {
-                                    bgcolor: "rgba(255,255,255,0.92)",
-                                    boxShadow: "0 10px 22px rgba(45, 52, 51, 0.04)",
+                                    bgcolor: selectedBg,
+                                    boxShadow: selectedShadow,
                                 },
                                 "&.Mui-selected:hover": {
-                                    bgcolor: "rgba(255,255,255,0.92)",
+                                    bgcolor: selectedBg,
                                 },
                                 "&:hover": {
-                                    bgcolor: "rgba(255,255,255,0.75)",
+                                    bgcolor: hoverBg,
                                     color: "primary.main",
                                 },
                             }}
@@ -144,19 +161,19 @@ export function Sidebar() {
                         selected={cashGroupSelected || cashGroupExpanded}
                         sx={{
                             ...linkSx,
-                            color: cashGroupSelected || cashGroupExpanded ? "#1b58d8" : "#3e4d4f",
+                            color: cashGroupSelected || cashGroupExpanded ? "#1b58d8" : baseTextColor,
                             "& .MuiListItemText-primary": {
                                 fontWeight: cashGroupSelected || cashGroupExpanded ? 700 : 500,
                             },
                             "&.Mui-selected": {
-                                bgcolor: "rgba(255,255,255,0.92)",
-                                boxShadow: "0 10px 22px rgba(45, 52, 51, 0.04)",
+                                bgcolor: selectedBg,
+                                boxShadow: selectedShadow,
                             },
                             "&.Mui-selected:hover": {
-                                bgcolor: "rgba(255,255,255,0.92)",
+                                bgcolor: selectedBg,
                             },
                             "&:hover": {
-                                bgcolor: "rgba(255,255,255,0.75)",
+                                bgcolor: hoverBg,
                                 color: "primary.main",
                             },
                         }}
@@ -170,11 +187,7 @@ export function Sidebar() {
                             id={cashLabelId}
                         />
                         <IconButton
-                            aria-label={
-                                cashGroupExpanded
-                                    ? "Recolher menu do caixa"
-                                    : "Expandir menu do caixa"
-                            }
+                            aria-label={cashGroupExpanded ? "Recolher menu do caixa" : "Expandir menu do caixa"}
                             aria-controls="cash-group-children"
                             aria-expanded={isCashOpen ? cashGroupExpanded : false}
                             aria-labelledby={cashLabelId}
@@ -191,7 +204,7 @@ export function Sidebar() {
                             sx={{
                                 color: "text.secondary",
                                 "&.Mui-disabled": {
-                                    color: "rgba(62, 77, 79, 0.42)",
+                                    color: disabledTextColor,
                                 },
                             }}
                         >
@@ -212,8 +225,7 @@ export function Sidebar() {
                             {cashChildren.map((item) => {
                                 const selected =
                                     item.to === "/comandas"
-                                        ? location.pathname === "/comandas" ||
-                                          location.pathname.startsWith("/comandas/")
+                                        ? location.pathname === "/comandas" || location.pathname.startsWith("/comandas/")
                                         : location.pathname.startsWith("/caixa/nova-venda");
 
                                 return (
@@ -228,10 +240,10 @@ export function Sidebar() {
                                             pr: 1.25,
                                             borderRadius: "12px",
                                             color: !isCashOpen
-                                                ? "rgba(62, 77, 79, 0.42)"
+                                                ? disabledTextColor
                                                 : selected
                                                   ? "#1b58d8"
-                                                  : "#526163",
+                                                  : mutedTextColor,
                                             "& .MuiListItemIcon-root": {
                                                 color: "inherit",
                                                 minWidth: 32,
@@ -241,18 +253,16 @@ export function Sidebar() {
                                                 fontSize: "0.95rem",
                                             },
                                             "&.Mui-selected": {
-                                                bgcolor: "rgba(255,255,255,0.92)",
+                                                bgcolor: selectedBg,
                                             },
                                             "&.Mui-selected:hover": {
-                                                bgcolor: "rgba(255,255,255,0.92)",
+                                                bgcolor: selectedBg,
                                             },
                                             "&.Mui-disabled": {
                                                 opacity: 1,
                                             },
                                             "&:hover": {
-                                                bgcolor: isCashOpen
-                                                    ? "rgba(255,255,255,0.75)"
-                                                    : "transparent",
+                                                bgcolor: isCashOpen ? hoverBg : "transparent",
                                             },
                                         }}
                                         to={item.to}
@@ -271,19 +281,19 @@ export function Sidebar() {
                     selected={location.pathname.startsWith(historyItem.to)}
                     sx={{
                         ...linkSx,
-                        color: location.pathname.startsWith(historyItem.to) ? "#1b58d8" : "#3e4d4f",
+                        color: location.pathname.startsWith(historyItem.to) ? "#1b58d8" : baseTextColor,
                         "& .MuiListItemText-primary": {
                             fontWeight: location.pathname.startsWith(historyItem.to) ? 700 : 500,
                         },
                         "&.Mui-selected": {
-                            bgcolor: "rgba(255,255,255,0.92)",
-                            boxShadow: "0 10px 22px rgba(45, 52, 51, 0.04)",
+                            bgcolor: selectedBg,
+                            boxShadow: selectedShadow,
                         },
                         "&.Mui-selected:hover": {
-                            bgcolor: "rgba(255,255,255,0.92)",
+                            bgcolor: selectedBg,
                         },
                         "&:hover": {
-                            bgcolor: "rgba(255,255,255,0.75)",
+                            bgcolor: hoverBg,
                             color: "primary.main",
                         },
                     }}
@@ -298,19 +308,19 @@ export function Sidebar() {
                     selected={location.pathname.startsWith(financeItem.to)}
                     sx={{
                         ...linkSx,
-                        color: location.pathname.startsWith(financeItem.to) ? "#1b58d8" : "#3e4d4f",
+                        color: location.pathname.startsWith(financeItem.to) ? "#1b58d8" : baseTextColor,
                         "& .MuiListItemText-primary": {
                             fontWeight: location.pathname.startsWith(financeItem.to) ? 700 : 500,
                         },
                         "&.Mui-selected": {
-                            bgcolor: "rgba(255,255,255,0.92)",
-                            boxShadow: "0 10px 22px rgba(45, 52, 51, 0.04)",
+                            bgcolor: selectedBg,
+                            boxShadow: selectedShadow,
                         },
                         "&.Mui-selected:hover": {
-                            bgcolor: "rgba(255,255,255,0.92)",
+                            bgcolor: selectedBg,
                         },
                         "&:hover": {
-                            bgcolor: "rgba(255,255,255,0.75)",
+                            bgcolor: hoverBg,
                             color: "primary.main",
                         },
                     }}
@@ -325,19 +335,19 @@ export function Sidebar() {
                     selected={location.pathname.startsWith(stockItem.to)}
                     sx={{
                         ...linkSx,
-                        color: location.pathname.startsWith(stockItem.to) ? "#1b58d8" : "#3e4d4f",
+                        color: location.pathname.startsWith(stockItem.to) ? "#1b58d8" : baseTextColor,
                         "& .MuiListItemText-primary": {
                             fontWeight: location.pathname.startsWith(stockItem.to) ? 700 : 500,
                         },
                         "&.Mui-selected": {
-                            bgcolor: "rgba(255,255,255,0.92)",
-                            boxShadow: "0 10px 22px rgba(45, 52, 51, 0.04)",
+                            bgcolor: selectedBg,
+                            boxShadow: selectedShadow,
                         },
                         "&.Mui-selected:hover": {
-                            bgcolor: "rgba(255,255,255,0.92)",
+                            bgcolor: selectedBg,
                         },
                         "&:hover": {
-                            bgcolor: "rgba(255,255,255,0.75)",
+                            bgcolor: hoverBg,
                             color: "primary.main",
                         },
                     }}
@@ -366,6 +376,75 @@ export function Sidebar() {
                     </Paper>
                 ))}
             </List>
+
+            <Box sx={{ mt: "auto", pt: 3 }}>
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 1.25,
+                        borderRadius: "18px",
+                        bgcolor: "transparent",
+                        border: "none",
+                    }}
+                >
+                    <Stack direction="row" spacing={1.25} alignItems="center" justifyContent="center">
+                        
+                        <Box
+                            role="switch"
+                            aria-checked={mode === "dark"}
+                            aria-label="Alternar entre modo claro e modo escuro"
+                            onClick={toggleMode}
+                            sx={{
+                                bgcolor:
+                                    mode === "dark" ? "#201e1f" : "#f4f4f1",
+                                borderRadius: "999px",
+                                width: 116,
+                                height: 58,
+                                p: "6px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                border: `1px solid ${theme.palette.divider}`,
+                                boxShadow:
+                                    mode === "dark"
+                                        ? "inset 0 1px 0 rgba(255,255,255,0.04)"
+                                        : "inset 0 1px 0 rgba(255,255,255,0.6)",
+                                cursor: "pointer",
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    width: 46,
+                                    height: 46,
+                                    borderRadius: "999px",
+                                    bgcolor: mode === "dark" ? "transparent" : "#3d45b6",
+                                    color: mode === "dark" ? "rgba(255,255,255,0.62)" : "#ffffff",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    transition: "all 160ms ease",
+                                }}
+                            >
+                                <LightModeRoundedIcon fontSize="small" />
+                            </Box>
+
+                            <Box
+                                sx={{
+                                    width: 46,
+                                    height: 46,
+                                    borderRadius: "999px",
+                                    bgcolor: mode === "dark" ? "#3d45b6" : "transparent",
+                                    color: mode === "dark" ? "#ffffff" : "rgba(38, 44, 53, 0.26)",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    transition: "all 160ms ease",
+                                }}
+                            >
+                                <DarkModeRoundedIcon fontSize="small" />
+                            </Box>
+                        </Box>
+                    </Stack>
+                </Paper>
+            </Box>
         </Box>
     );
 }

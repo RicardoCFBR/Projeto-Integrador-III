@@ -280,7 +280,7 @@ export function SalesHistoryPage() {
                                 sx={{
                                     p: 2.5,
                                     borderRadius: "12px",
-                                    bgcolor: "#f8faf9",
+                                    bgcolor: "background.default",
                                     border: "1px dashed rgba(36,49,50,0.18)",
                                 }}
                             >

@@ -27,6 +27,7 @@ import {
     Stack,
     TextField,
     Typography,
+    useTheme,
 } from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -49,23 +50,23 @@ type CategoryFilter = {
 
 const CASHIER_CATEGORY_SLUGS = new Set(["bebidas", "mercearia", "conveniencia"]);
 
-function resolveCashierProductPresentation(product: Product) {
+function resolveCashierProductPresentation(product: Product, darkMode: boolean) {
     switch (product.categorySlug) {
         case "bebidas":
             return {
                 icon: <LocalBarRoundedIcon fontSize="large" />,
-                tone: "#fff3e0",
+                tone: darkMode ? "rgba(231, 151, 58, 0.16)" : "#fff3e0",
             };
         case "mercearia":
         case "conveniencia":
             return {
                 icon: <StorefrontRoundedIcon fontSize="large" />,
-                tone: "#effaf1",
+                tone: darkMode ? "rgba(85, 220, 40, 0.14)" : "#effaf1",
             };
         default:
             return {
                 icon: <Inventory2RoundedIcon fontSize="large" />,
-                tone: "#f2f4f7",
+                tone: darkMode ? "rgba(110, 163, 255, 0.14)" : "#f2f4f7",
             };
     }
 }
@@ -99,6 +100,7 @@ function formatCurrency(value: number) {
 }
 
 export function CashierPage() {
+    const theme = useTheme();
     const navigate = useNavigate();
     const { refreshCashSession } = useCashSession();
     const [products, setProducts] = useState<Product[]>([]);
@@ -132,7 +134,6 @@ export function CashierPage() {
                     setProducts(
                         response.filter(
                             (product) =>
-                                product.stockType === "unit" &&
                                 CASHIER_CATEGORY_SLUGS.has(product.categorySlug),
                         ),
                     );
@@ -190,9 +191,9 @@ export function CashierPage() {
             })
             .map((product) => ({
                 ...product,
-                ...resolveCashierProductPresentation(product),
+                ...resolveCashierProductPresentation(product, theme.palette.mode === "dark"),
             }));
-    }, [products, searchTerm, selectedCategory]);
+    }, [products, searchTerm, selectedCategory, theme.palette.mode]);
 
     const itemsCount = useMemo(
         () => cart.reduce((total, item) => total + item.quantity, 0),
@@ -410,6 +411,30 @@ export function CashierPage() {
                                                 borderRadius: "999px",
                                                 fontWeight: 800,
                                                 px: 1,
+                                                bgcolor:
+                                                    selectedCategory === category.value
+                                                        ? theme.palette.mode === "dark"
+                                                            ? "rgba(110, 163, 255, 0.22)"
+                                                            : undefined
+                                                        : theme.palette.mode === "dark"
+                                                          ? "rgba(255,255,255,0.04)"
+                                                          : undefined,
+                                                color:
+                                                    selectedCategory === category.value
+                                                        ? theme.palette.mode === "dark"
+                                                            ? "#dbe7ff"
+                                                            : undefined
+                                                        : theme.palette.mode === "dark"
+                                                          ? "text.primary"
+                                                          : undefined,
+                                                borderColor:
+                                                    selectedCategory === category.value
+                                                        ? theme.palette.mode === "dark"
+                                                            ? "rgba(110, 163, 255, 0.32)"
+                                                            : undefined
+                                                        : theme.palette.mode === "dark"
+                                                          ? "rgba(255,255,255,0.12)"
+                                                          : undefined,
                                             }}
                                         />
                                     ))}
@@ -424,7 +449,7 @@ export function CashierPage() {
                                         flexShrink: 0,
                                         "& .MuiOutlinedInput-root": {
                                             borderRadius: "10px",
-                                            bgcolor: "#ffffff",
+                                            bgcolor: "background.paper",
                                         },
                                     }}
                                     InputProps={{
@@ -558,7 +583,7 @@ export function CashierPage() {
                         sx={{
                             borderRadius: "12px",
                             overflow: "hidden",
-                            bgcolor: "#eef3f1",
+                            bgcolor: "var(--surface-soft)",
                             display: "flex",
                             flexDirection: "column",
                             minHeight: { xs: 520, xl: "auto" },
@@ -580,7 +605,18 @@ export function CashierPage() {
                             <Chip
                                 color="secondary"
                                 label={`${itemsCount} ${itemsCount === 1 ? "item" : "itens"}`}
-                                sx={{ fontWeight: 800, borderRadius: "999px" }}
+                                sx={{
+                                    fontWeight: 800,
+                                    borderRadius: "999px",
+                                    bgcolor:
+                                        theme.palette.mode === "dark"
+                                            ? "rgba(110, 163, 255, 0.2)"
+                                            : undefined,
+                                    color:
+                                        theme.palette.mode === "dark"
+                                            ? "#dbe7ff"
+                                            : undefined,
+                                }}
                             />
                         </Stack>
 
@@ -608,7 +644,7 @@ export function CashierPage() {
                                             sx={{
                                                 width: 32,
                                                 height: 32,
-                                                bgcolor: "#eef3f1",
+                                                bgcolor: "var(--surface-soft)",
                                                 color: "text.primary",
                                                 borderRadius: "8px",
                                             }}
@@ -624,7 +660,7 @@ export function CashierPage() {
                                                 borderRadius: "8px",
                                                 display: "grid",
                                                 placeItems: "center",
-                                                bgcolor: "#eef3f1",
+                                                bgcolor: "var(--surface-soft)",
                                                 fontWeight: 800,
                                                 fontSize: "0.82rem",
                                             }}
@@ -641,7 +677,7 @@ export function CashierPage() {
                                             sx={{
                                                 width: 32,
                                                 height: 32,
-                                                bgcolor: "#eef3f1",
+                                                bgcolor: "var(--surface-soft)",
                                                 color: "text.primary",
                                                 borderRadius: "8px",
                                                 "&.Mui-disabled": {

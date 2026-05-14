@@ -13,10 +13,12 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
+    FormControlLabel,
     IconButton,
     MenuItem,
     Paper,
     Stack,
+    Switch,
     Table,
     TableBody,
     TableCell,
@@ -285,9 +287,9 @@ export function StockPage() {
                         <Stack spacing={2}>
                             <Stack direction={{ xs: "column", lg: "row" }} justifyContent="space-between" spacing={1.25}>
                                 <Box>
-                                    <Typography variant="h5">Produtos Controlados</Typography>
+                                    <Typography variant="h5">Produtos e Estoque</Typography>
                                     <Typography color="text.secondary">
-                                        Edite saldos, estoque mínimo e cadastro dos produtos controlados.
+                                        Cadastre produtos, defina se controlam estoque e edite saldos quando houver controle.
                                     </Typography>
                                 </Box>
                                 <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
@@ -436,16 +438,80 @@ export function StockPage() {
                             </TextField>
                         </Stack>
                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                            <TextField select label="Tipo de estoque" fullWidth value={productForm.stockType} onChange={(e) => setProductForm((current) => ({ ...current, stockType: e.target.value }))}>
+                            <TextField
+                                select
+                                label="Tipo de estoque"
+                                fullWidth
+                                value={productForm.stockType}
+                                onChange={(e) =>
+                                    setProductForm((current) => {
+                                        const nextStockType = e.target.value as StockProductInput["stockType"];
+                                        const becomesUntracked = nextStockType === "untracked";
+
+                                        return {
+                                            ...current,
+                                            stockType: nextStockType,
+                                            controlsStock: becomesUntracked ? false : current.controlsStock,
+                                            currentStock: becomesUntracked ? 0 : current.currentStock,
+                                            minimumStock: becomesUntracked ? 0 : current.minimumStock,
+                                        };
+                                    })
+                                }
+                            >
                                 {stockTypeOptions.map((option) => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
                             </TextField>
                             <TextField select label="Unidade" fullWidth value={productForm.unit} onChange={(e) => setProductForm((current) => ({ ...current, unit: e.target.value as StockUnit }))}>
                                 {unitOptions.map((option) => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
                             </TextField>
                         </Stack>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={productForm.controlsStock}
+                                    disabled={productForm.stockType === "untracked"}
+                                    onChange={(e) =>
+                                        setProductForm((current) => ({
+                                            ...current,
+                                            controlsStock: e.target.checked,
+                                            currentStock: e.target.checked ? current.currentStock : 0,
+                                            minimumStock: e.target.checked ? current.minimumStock : 0,
+                                        }))
+                                    }
+                                />
+                            }
+                            label={
+                                productForm.stockType === "untracked"
+                                    ? "Produto não controlado no estoque"
+                                    : "Controlar estoque deste produto"
+                            }
+                        />
                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                            <TextField label="Estoque atual" type="number" fullWidth value={productForm.currentStock} onChange={(e) => setProductForm((current) => ({ ...current, currentStock: Number(e.target.value) }))} />
-                            <TextField label="Estoque mínimo" type="number" fullWidth value={productForm.minimumStock} onChange={(e) => setProductForm((current) => ({ ...current, minimumStock: Number(e.target.value) }))} />
+                            <TextField
+                                label="Estoque atual"
+                                type="number"
+                                fullWidth
+                                disabled={!productForm.controlsStock}
+                                value={productForm.currentStock}
+                                onChange={(e) =>
+                                    setProductForm((current) => ({
+                                        ...current,
+                                        currentStock: Number(e.target.value),
+                                    }))
+                                }
+                            />
+                            <TextField
+                                label="Estoque mínimo"
+                                type="number"
+                                fullWidth
+                                disabled={!productForm.controlsStock}
+                                value={productForm.minimumStock}
+                                onChange={(e) =>
+                                    setProductForm((current) => ({
+                                        ...current,
+                                        minimumStock: Number(e.target.value),
+                                    }))
+                                }
+                            />
                         </Stack>
                     </Stack>
                 </DialogContent>

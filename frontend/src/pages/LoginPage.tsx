@@ -11,12 +11,14 @@ import {
     Stack,
     TextField,
     Typography,
+    useTheme,
 } from "@mui/material";
 
 import { useAuth } from "../contexts/AuthContext";
 import logo from "../assets/logo.png";
 
 export function LoginPage() {
+    const theme = useTheme();
     const { loginUser } = useAuth();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -52,8 +54,7 @@ export function LoginPage() {
                 placeItems: "center",
                 px: 2,
                 py: 4,
-                background:
-                    "radial-gradient(circle at top right, rgba(157, 241, 151, 0.18), transparent 30%), linear-gradient(180deg, #fbfdfc 0%, #eef6f2 100%)",
+                background: "var(--login-background)",
             }}
         >
             <Paper
@@ -63,7 +64,12 @@ export function LoginPage() {
                     maxWidth: 440,
                     p: { xs: 3, md: 4 },
                     borderRadius: "20px",
-                    boxShadow: "0 24px 60px rgba(36, 49, 50, 0.08)",
+                    bgcolor: "background.paper",
+                    boxShadow:
+                        theme.palette.mode === "dark"
+                            ? "0 24px 60px rgba(0, 0, 0, 0.42)"
+                            : "0 24px 60px rgba(36, 49, 50, 0.08)",
+                    border: `1px solid ${theme.palette.divider}`,
                 }}
             >
                 <Stack component="form" spacing={3} onSubmit={handleSubmit}>

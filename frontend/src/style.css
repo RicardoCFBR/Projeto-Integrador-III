@@ -10,10 +10,25 @@
     --muted: #6e7878;
     --primary: #1c6d25;
     --primary-soft: #9df197;
-    --secondary: #0062a5;
+    --secondary: #1b58d8;
     --attention: #a73b21;
     --border-soft: rgba(117, 124, 123, 0.12);
     --shadow-soft: 0 18px 40px rgba(45, 52, 51, 0.06);
+    --body-background: linear-gradient(180deg, #fbfdfc 0%, #f5f9f7 100%);
+    --sidebar-background: linear-gradient(180deg, #f7fbf9 0%, #eef6f2 100%);
+    --login-background:
+        radial-gradient(circle at top right, rgba(157, 241, 151, 0.18), transparent 30%),
+        linear-gradient(180deg, #fbfdfc 0%, #eef6f2 100%);
+    --topbar-background: rgba(255, 255, 255, 0.82);
+    --surface-selected: rgba(255, 255, 255, 0.92);
+    --surface-hover: rgba(255, 255, 255, 0.75);
+    --surface-float: rgba(255, 255, 255, 0.78);
+    --shadow-selected: 0 10px 22px rgba(45, 52, 51, 0.04);
+    --theme-toggle-bg: rgba(27, 88, 216, 0.08);
+    --theme-toggle-hover: rgba(27, 88, 216, 0.14);
+    --card-surface: rgba(255, 255, 255, 0.92);
+    --card-surface-muted: rgba(241, 244, 243, 0.88);
+    --card-surface-paid: rgba(238, 244, 255, 0.95);
     font-family: "Manrope", sans-serif;
     color: var(--text);
     background: var(--background);
@@ -24,6 +39,40 @@
     -moz-osx-font-smoothing: grayscale;
     line-height: 1.5;
     font-weight: 400;
+}
+
+:root[data-theme="dark"] {
+    --background: #0d1415;
+    --surface: #152021;
+    --surface-soft: rgba(255, 255, 255, 0.06);
+    --surface-strong: rgba(255, 255, 255, 0.1);
+    --sidebar: #131d1e;
+    --text: #edf5f2;
+    --muted: #97abaa;
+    --primary: #74d87c;
+    --primary-soft: #bff7b8;
+    --secondary: #6ea3ff;
+    --attention: #ff8568;
+    --border-soft: rgba(151, 171, 170, 0.16);
+    --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.28);
+    --body-background:
+        radial-gradient(circle at top right, rgba(157, 241, 151, 0.12), transparent 28%),
+        linear-gradient(180deg, #0c1213 0%, #11191a 100%);
+    --sidebar-background: linear-gradient(180deg, #0f1718 0%, #131d1e 100%);
+    --login-background:
+        radial-gradient(circle at top right, rgba(157, 241, 151, 0.14), transparent 30%),
+        linear-gradient(180deg, #0c1213 0%, #11191a 100%);
+    --topbar-background: rgba(15, 23, 24, 0.82);
+    --surface-selected: rgba(255, 255, 255, 0.08);
+    --surface-hover: rgba(255, 255, 255, 0.05);
+    --surface-float: rgba(255, 255, 255, 0.05);
+    --shadow-selected: 0 12px 28px rgba(0, 0, 0, 0.24);
+    --theme-toggle-bg: rgba(255, 255, 255, 0.1);
+    --theme-toggle-hover: rgba(255, 255, 255, 0.16);
+    --card-surface: rgba(255, 255, 255, 0.08);
+    --card-surface-muted: rgba(255, 255, 255, 0.04);
+    --card-surface-paid: rgba(110, 163, 255, 0.12);
+    color-scheme: dark;
 }
 
 * {
@@ -38,7 +87,7 @@ body {
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
-    background: linear-gradient(180deg, #fbfdfc 0%, #f5f9f7 100%);
+    background: var(--body-background);
 }
 
 a {
@@ -270,7 +319,7 @@ button {
 .metric-card,
 .chart-panel,
 .status-card {
-    background: rgba(255, 255, 255, 0.92);
+    background: var(--card-surface);
     border-radius: 18px;
     box-shadow: var(--shadow-soft);
 }
@@ -370,6 +419,7 @@ button {
     min-height: 204px;
     overflow: hidden;
     cursor: pointer;
+    border: 1px solid var(--border-soft);
 }
 
 .tab-card__status {
@@ -405,6 +455,33 @@ button {
     font-weight: 700;
 }
 
+.tab-card__status-badge {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+.tab-card__status-badge--open {
+    background: rgba(28, 109, 37, 0.14);
+    color: var(--primary);
+}
+
+.tab-card__status-badge--closed {
+    background: rgba(117, 124, 123, 0.14);
+    color: var(--muted);
+}
+
+.tab-card__status-badge--paid {
+    background: rgba(27, 88, 216, 0.14);
+    color: var(--secondary);
+}
+
 .tab-card__note--attention {
     color: var(--attention);
 }
@@ -429,7 +506,7 @@ button {
 }
 
 .tab-card--closed {
-    background: rgba(241, 244, 243, 0.88);
+    background: var(--card-surface-muted);
 }
 
 .tab-card--closed .tab-card__status {
@@ -438,6 +515,14 @@ button {
 
 .tab-card--closed .tab-card__body {
     opacity: 0.68;
+}
+
+.tab-card--paid {
+    background: var(--card-surface-paid);
+}
+
+.tab-card--paid .tab-card__status {
+    background: var(--secondary);
 }
 
 .metrics-grid {

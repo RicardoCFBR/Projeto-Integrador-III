@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { useMemo } from "react";
 
 import {
     Box,
@@ -15,6 +16,7 @@ import { Topbar } from "./components/layout/Topbar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CashSessionProvider, useCashSession } from "./contexts/CashSessionContext";
 import { TabsProvider } from "./contexts/TabsContext";
+import { ThemeModeProvider, useThemeMode } from "./contexts/ThemeModeContext";
 import { DashboardPage } from "./pages/DashboardPage";
 import { CashierPage } from "./pages/CashierPage";
 import { CashierOverviewPage } from "./pages/CashierOverviewPage";
@@ -25,63 +27,94 @@ import { SalesHistoryPage } from "./pages/SalesHistoryPage";
 import { TabDetailPage } from "./pages/TabDetailPage";
 import { TabsPage } from "./pages/TabsPage";
 
-let theme = createTheme({
-    palette: {
-        mode: "light",
-        primary: {
-            main: "#1c6d25",
-            light: "#9df197",
+function buildTheme(mode: "light" | "dark") {
+    const rootStyles =
+        typeof window === "undefined" ? null : window.getComputedStyle(document.documentElement);
+    const getCssVar = (name: string, fallback: string) =>
+        rootStyles?.getPropertyValue(name).trim() || fallback;
+
+    let theme = createTheme({
+        palette: {
+            mode,
+            primary: {
+                main: getCssVar("--primary", "#1c6d25"),
+                light: getCssVar("--primary-soft", "#9df197"),
+            },
+            secondary: {
+                main: getCssVar("--secondary", "#1b58d8"),
+                light: getCssVar("--secondary", "#1b58d8"),
+            },
+            background: {
+                default: getCssVar("--background", "#f8faf9"),
+                paper: getCssVar("--surface", "#ffffff"),
+            },
+            text: {
+                primary: getCssVar("--text", "#243132"),
+                secondary: getCssVar("--muted", "#6e7878"),
+            },
+            error: {
+                main: getCssVar("--attention", "#a73b21"),
+            },
+            divider: getCssVar("--border-soft", "rgba(117, 124, 123, 0.12)"),
         },
-        secondary: {
-            main: "#0062a5",
+        shape: {
+            borderRadius: 18,
         },
-        background: {
-            default: "#f8faf9",
-            paper: "#ffffff",
+        typography: {
+            fontFamily: '"Manrope", sans-serif',
+            h1: {
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                fontWeight: 800,
+            },
+            h2: {
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                fontWeight: 800,
+            },
+            h3: {
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                fontWeight: 700,
+            },
+            button: {
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                fontWeight: 800,
+                textTransform: "none",
+            },
         },
-        text: {
-            primary: "#243132",
-            secondary: "#6e7878",
-        },
-        error: {
-            main: "#a73b21",
-        },
-    },
-    shape: {
-        borderRadius: 18,
-    },
-    typography: {
-        fontFamily: '"Manrope", sans-serif',
-        h1: {
-            fontFamily: '"Plus Jakarta Sans", sans-serif',
-            fontWeight: 800,
-        },
-        h2: {
-            fontFamily: '"Plus Jakarta Sans", sans-serif',
-            fontWeight: 800,
-        },
-        h3: {
-            fontFamily: '"Plus Jakarta Sans", sans-serif',
-            fontWeight: 700,
-        },
-        button: {
-            fontFamily: '"Plus Jakarta Sans", sans-serif',
-            fontWeight: 800,
-            textTransform: "none",
-        },
-    },
-    components: {
-        MuiCssBaseline: {
-            styleOverrides: {
-                body: {
-                    background: "linear-gradient(180deg, #fbfdfc 0%, #f5f9f7 100%)",
+        components: {
+            MuiCssBaseline: {
+                styleOverrides: {
+                    body: {
+                        background: "var(--body-background)",
+                    },
+                },
+            },
+            MuiPaper: {
+                styleOverrides: {
+                    root: {
+                        backgroundImage: "none",
+                    },
+                },
+            },
+            MuiCard: {
+                styleOverrides: {
+                    root: {
+                        backgroundImage: "none",
+                    },
+                },
+            },
+            MuiChip: {
+                styleOverrides: {
+                    root: {
+                        backgroundColor: mode === "dark" ? "var(--surface-soft)" : undefined,
+                    },
                 },
             },
         },
-    },
-});
+    });
 
-theme = responsiveFontSizes(theme);
+    theme = responsiveFontSizes(theme);
+    return theme;
+}
 
 function HomeRoute() {
     const { loading } = useCashSession();
@@ -209,7 +242,10 @@ function AuthenticatedAppShell() {
     );
 }
 
-export default function App() {
+function AppContent() {
+    const { mode } = useThemeMode();
+    const theme = useMemo(() => buildTheme(mode), [mode]);
+
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
@@ -227,5 +263,13 @@ export default function App() {
                 </Routes>
             </AuthProvider>
         </ThemeProvider>
+    );
+}
+
+export default function App() {
+    return (
+        <ThemeModeProvider>
+            <AppContent />
+        </ThemeModeProvider>
     );
 }

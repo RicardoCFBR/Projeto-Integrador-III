@@ -18,7 +18,6 @@ import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import StorefrontRoundedIcon from "@mui/icons-material/StorefrontRounded";
 import {
-    alpha,
     Box,
     Button,
     Chip,
@@ -34,6 +33,7 @@ import {
     Stack,
     TextField,
     Typography,
+    useTheme,
 } from "@mui/material";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -64,20 +64,35 @@ type CategoryFilter = {
 
 const EXCLUDED_TAB_CATEGORY_SLUGS = new Set(["mercearia", "conveniencia"]);
 
-function resolveProductPresentation(product: Product) {
+function resolveProductPresentation(product: Product, darkMode: boolean) {
     switch (product.categorySlug) {
         case "bebidas":
-            return { icon: <LocalBarRoundedIcon fontSize="large" />, tone: "#fff3e0" };
+            return {
+                icon: <LocalBarRoundedIcon fontSize="large" />,
+                tone: darkMode ? "rgba(231, 151, 58, 0.16)" : "#fff3e0",
+            };
         case "drinks":
-            return { icon: <LocalBarRoundedIcon fontSize="large" />, tone: "#edf5ff" };
+            return {
+                icon: <LocalBarRoundedIcon fontSize="large" />,
+                tone: darkMode ? "rgba(110, 163, 255, 0.16)" : "#edf5ff",
+            };
         case "porcoes":
         case "cozinha":
-            return { icon: <RestaurantRoundedIcon fontSize="large" />, tone: "#fff1ea" };
+            return {
+                icon: <RestaurantRoundedIcon fontSize="large" />,
+                tone: darkMode ? "rgba(255, 133, 104, 0.16)" : "#fff1ea",
+            };
         case "mercearia":
         case "conveniencia":
-            return { icon: <StorefrontRoundedIcon fontSize="large" />, tone: "#effaf1" };
+            return {
+                icon: <StorefrontRoundedIcon fontSize="large" />,
+                tone: darkMode ? "rgba(85, 220, 40, 0.14)" : "#effaf1",
+            };
         default:
-            return { icon: <Inventory2RoundedIcon fontSize="large" />, tone: "#f2f4f7" };
+            return {
+                icon: <Inventory2RoundedIcon fontSize="large" />,
+                tone: darkMode ? "rgba(110, 163, 255, 0.14)" : "#f2f4f7",
+            };
     }
 }
 
@@ -86,6 +101,7 @@ function isProductOutOfStock(product: Product) {
 }
 
 export function TabDetailPage() {
+    const theme = useTheme();
     const navigate = useNavigate();
     const params = useParams<{ tabId?: string }>();
     const { createTab, refreshTabs, tabs, updateTabStatus } = useTabs();
@@ -239,9 +255,9 @@ export function TabDetailPage() {
             })
             .map((product) => ({
                 ...product,
-                ...resolveProductPresentation(product),
+                ...resolveProductPresentation(product, theme.palette.mode === "dark"),
             }));
-    }, [commandProducts, searchTerm, selectedCategory]);
+    }, [commandProducts, searchTerm, selectedCategory, theme.palette.mode]);
 
     const receivedAmountNumber = Number.parseFloat(
         receivedAmountInput.replace(/[^\d,.-]/g, "").replace(",", "."),
@@ -430,7 +446,7 @@ export function TabDetailPage() {
                 sx={{
                     p: { xs: 2, md: 2.5 },
                     borderRadius: "12px",
-                    bgcolor: alpha("#ffffff", 0.78),
+                    bgcolor: "var(--surface-float)",
                     backdropFilter: "blur(12px)",
                     display: "flex",
                     alignItems: "center",
@@ -656,6 +672,30 @@ export function TabDetailPage() {
                                             borderRadius: "999px",
                                             fontWeight: 800,
                                             px: 1,
+                                            bgcolor:
+                                                selectedCategory === category.value
+                                                    ? theme.palette.mode === "dark"
+                                                        ? "rgba(110, 163, 255, 0.22)"
+                                                        : undefined
+                                                    : theme.palette.mode === "dark"
+                                                      ? "rgba(255,255,255,0.04)"
+                                                      : undefined,
+                                            color:
+                                                selectedCategory === category.value
+                                                    ? theme.palette.mode === "dark"
+                                                        ? "#dbe7ff"
+                                                        : undefined
+                                                    : theme.palette.mode === "dark"
+                                                      ? "text.primary"
+                                                      : undefined,
+                                            borderColor:
+                                                selectedCategory === category.value
+                                                    ? theme.palette.mode === "dark"
+                                                        ? "rgba(110, 163, 255, 0.32)"
+                                                        : undefined
+                                                    : theme.palette.mode === "dark"
+                                                      ? "rgba(255,255,255,0.12)"
+                                                      : undefined,
                                         }}
                                     />
                                 ))}
@@ -797,7 +837,7 @@ export function TabDetailPage() {
                     sx={{
                         borderRadius: "12px",
                         overflow: "hidden",
-                        bgcolor: "#eef3f1",
+                        bgcolor: "var(--surface-soft)",
                         display: "flex",
                         flexDirection: "column",
                         minHeight: { xs: 520, xl: "auto" },
@@ -846,7 +886,7 @@ export function TabDetailPage() {
                                         sx={{
                                             width: 32,
                                             height: 32,
-                                            bgcolor: "#eef3f1",
+                                            bgcolor: "var(--surface-soft)",
                                             color: "text.primary",
                                             borderRadius: "8px",
                                             flexShrink: 0,
@@ -863,7 +903,7 @@ export function TabDetailPage() {
                                             borderRadius: "8px",
                                             display: "grid",
                                             placeItems: "center",
-                                            bgcolor: "#eef3f1",
+                                            bgcolor: "var(--surface-soft)",
                                             fontWeight: 800,
                                             fontSize: "0.82rem",
                                             flexShrink: 0,
@@ -881,7 +921,7 @@ export function TabDetailPage() {
                                         sx={{
                                             width: 32,
                                             height: 32,
-                                            bgcolor: "#eef3f1",
+                                            bgcolor: "var(--surface-soft)",
                                             color: "text.primary",
                                             borderRadius: "8px",
                                             flexShrink: 0,
@@ -1053,7 +1093,7 @@ export function TabDetailPage() {
                         Confirme a forma de pagamento para registrar esta comanda no caixa.
                     </Typography>
 
-                    <Paper elevation={0} sx={{ p: 2, borderRadius: "12px", bgcolor: "#eef3f1" }}>
+                    <Paper elevation={0} sx={{ p: 2, borderRadius: "12px", bgcolor: "var(--surface-soft)" }}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                             <Typography color="text.secondary">Total da comanda</Typography>
                             <Typography variant="h6">{totalValue}</Typography>
@@ -1093,7 +1133,7 @@ export function TabDetailPage() {
                             />
                             <Paper
                                 elevation={0}
-                                sx={{ p: 2, borderRadius: "12px", bgcolor: "#f7f9f8" }}
+                                sx={{ p: 2, borderRadius: "12px", bgcolor: "background.default" }}
                             >
                                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                                     <Typography color="text.secondary">Troco</Typography>
